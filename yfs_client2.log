@@ -1,0 +1,218 @@
+FUSE library version: 2.9.4
+unique: 1, opcode: INIT (26), nodeid: 0, insize: 56, pid: 0
+INIT: 7.26
+flags=0x001ffffb
+max_readahead=0x00020000
+   INIT: 7.19
+   flags=0x00000000
+   max_readahead=0x00020000
+   max_write=0x00020000
+   max_background=0
+   congestion_threshold=0
+   unique: 1, success, outsize: 40
+unique: 2, opcode: ACCESS (34), nodeid: 1, insize: 48, pid: 1707
+   unique: 2, error: -38 (Function not implemented), outsize: 16
+unique: 3, opcode: LOOKUP (1), nodeid: 1, insize: 47, pid: 1707
+   unique: 3, error: -2 (No such file or directory), outsize: 16
+unique: 4, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 4, success, outsize: 32
+unique: 5, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 5, error: -2 (No such file or directory), outsize: 16
+unique: 6, opcode: LOOKUP (1), nodeid: 1, insize: 57, pid: 29013
+   unique: 6, error: -2 (No such file or directory), outsize: 16
+unique: 7, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 7, success, outsize: 16
+unique: 8, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 8, success, outsize: 32
+unique: 9, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 9, error: -2 (No such file or directory), outsize: 16
+unique: 10, opcode: LOOKUP (1), nodeid: 1, insize: 52, pid: 29004
+   unique: 10, error: -2 (No such file or directory), outsize: 16
+unique: 11, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 11, success, outsize: 16
+unique: 12, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 12, success, outsize: 32
+unique: 13, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 13, error: -2 (No such file or directory), outsize: 16
+unique: 14, opcode: LOOKUP (1), nodeid: 1, insize: 52, pid: 1707
+   unique: 14, error: -2 (No such file or directory), outsize: 16
+unique: 15, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 15, success, outsize: 16
+unique: 16, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 16, success, outsize: 32
+unique: 17, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 17, error: -2 (No such file or directory), outsize: 16
+unique: 18, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 18, success, outsize: 16
+unique: 19, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 19, success, outsize: 32
+unique: 20, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 20, error: -2 (No such file or directory), outsize: 16
+unique: 21, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 21, success, outsize: 16
+unique: 22, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 22, success, outsize: 32
+unique: 23, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 23, error: -2 (No such file or directory), outsize: 16
+unique: 24, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 24, success, outsize: 16
+unique: 25, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 25, success, outsize: 32
+unique: 26, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 26, error: -2 (No such file or directory), outsize: 16
+unique: 27, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 27, success, outsize: 16
+unique: 28, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 28, success, outsize: 32
+unique: 29, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 29, error: -2 (No such file or directory), outsize: 16
+unique: 30, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 30, success, outsize: 16
+unique: 31, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 31, success, outsize: 32
+unique: 32, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 32, error: -2 (No such file or directory), outsize: 16
+unique: 33, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 33, success, outsize: 16
+unique: 34, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 34, success, outsize: 32
+unique: 35, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 35, error: -2 (No such file or directory), outsize: 16
+unique: 36, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 36, success, outsize: 16
+unique: 37, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 37, success, outsize: 32
+unique: 38, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 38, error: -2 (No such file or directory), outsize: 16
+unique: 39, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 39, success, outsize: 16
+unique: 40, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 40, success, outsize: 32
+unique: 41, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 41, error: -2 (No such file or directory), outsize: 16
+unique: 42, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 42, success, outsize: 16
+unique: 43, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 43, success, outsize: 32
+unique: 44, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 44, error: -2 (No such file or directory), outsize: 16
+unique: 45, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 45, success, outsize: 16
+unique: 46, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 46, success, outsize: 32
+unique: 47, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 47, error: -2 (No such file or directory), outsize: 16
+unique: 48, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 48, success, outsize: 16
+unique: 49, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 49, success, outsize: 32
+unique: 50, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 50, error: -2 (No such file or directory), outsize: 16
+unique: 51, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 51, success, outsize: 16
+unique: 52, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 52, success, outsize: 32
+unique: 53, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 53, error: -2 (No such file or directory), outsize: 16
+unique: 54, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 54, success, outsize: 16
+unique: 55, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 55, success, outsize: 32
+unique: 56, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 56, error: -2 (No such file or directory), outsize: 16
+unique: 57, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 57, success, outsize: 16
+unique: 58, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 58, success, outsize: 32
+unique: 59, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 59, error: -2 (No such file or directory), outsize: 16
+unique: 60, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 60, success, outsize: 16
+unique: 61, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 61, success, outsize: 32
+unique: 62, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 62, error: -2 (No such file or directory), outsize: 16
+unique: 63, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 63, success, outsize: 16
+unique: 64, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 64, success, outsize: 32
+unique: 65, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 65, error: -2 (No such file or directory), outsize: 16
+unique: 66, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 66, success, outsize: 16
+unique: 67, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 67, success, outsize: 32
+unique: 68, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 68, error: -2 (No such file or directory), outsize: 16
+unique: 69, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 69, success, outsize: 16
+unique: 70, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 1550
+   unique: 70, success, outsize: 32
+unique: 71, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 1550
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 71, error: -2 (No such file or directory), outsize: 16
+unique: 72, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 72, success, outsize: 16
+unique: 73, opcode: OPENDIR (27), nodeid: 1, insize: 48, pid: 29013
+   unique: 73, success, outsize: 32
+unique: 74, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 29013
+getattr 0000000000000001 0
+getdir 0000000000000001
+   unique: 74, error: -2 (No such file or directory), outsize: 16
+unique: 75, opcode: RELEASEDIR (29), nodeid: 1, insize: 64, pid: 0
+   unique: 75, success, outsize: 16
+unique: 76, opcode: LOOKUP (1), nodeid: 1, insize: 52, pid: 29004
+   unique: 76, error: -2 (No such file or directory), outsize: 16
+unique: 77, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 29032
+getattr 0000000000000001 0
+getdir 0000000000000001
+   getattr -> 1534498466 1534498466 1534498460
+   unique: 77, success, outsize: 120
+unique: 78, opcode: GETATTR (3), nodeid: 1, insize: 56, pid: 29133
+getattr 0000000000000001 0
+getdir 0000000000000001
+   getattr -> 1534498466 1534498466 1534498460
+   unique: 78, success, outsize: 120

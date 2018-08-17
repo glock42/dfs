@@ -33,6 +33,7 @@ class yfs_client {
    private:
     static std::string filename(inum);
     static inum n2i(std::string);
+    inum random_ino_();
 
    public:
     yfs_client(std::string, std::string);
@@ -45,6 +46,7 @@ class yfs_client {
 
     int create(inum parent, std::string name, inum& ret_ino);
     int lookup(inum parent, std::string name, inum& ret_ino);
+    int readdir(inum dir, std::map<std::string, inum>& files);
 };
 
 #endif

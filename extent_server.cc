@@ -15,7 +15,7 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &) {
     ScopedLock m(&m_);
     auto iter = contents_.find(id); 
     
-    if(iter != contents_.end()) {
+    if(iter == contents_.end()) {
         ext_content content;
         extent_protocol::attr attr;
         content.id = id;
@@ -47,7 +47,7 @@ int extent_server::get(extent_protocol::extentid_t id, std::string &buf) {
         iter->second.attr.atime = time(0);
         return extent_protocol::OK;
     } else {
-        return extent_protocol::IOERR;
+        return extent_protocol::NOENT;
     }
 }
 
