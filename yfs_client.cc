@@ -39,17 +39,12 @@ bool yfs_client::isfile(inum inum) {
 
 bool yfs_client::isdir(inum inum) { return !isfile(inum); }
 
-<<<<<<< HEAD
-int yfs_client::getfile(inum inum, fileinfo &fin) {
-    int r = OK;
-=======
 int
 yfs_client::getfile(inum inum, fileinfo &fin)
 {
   int r = OK;
   // You modify this function for Lab 3
   // - hold and release the file lock
->>>>>>> 8a7574edd36e5062d002cd3aa54e723fb24e69ad
 
     printf("getfile %016llx\n", inum);
     extent_protocol::attr a;
