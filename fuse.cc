@@ -117,9 +117,11 @@ void fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
         printf("   fuseserver_setattr set size to %zu\n", attr->st_size);
         struct stat st;
 // You fill this in for Lab 2
-#if 0
+#if 1 
     // Change the above line to "#if 1", and your code goes here
     // Note: fill st using getattr before fuse_reply_attr
+    yfs->truncate(ino, attr->st_size);
+    getattr(ino, st);
     fuse_reply_attr(req, &st, 0);
 #else
         fuse_reply_err(req, ENOSYS);
@@ -144,13 +146,15 @@ void fuseserver_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr,
 void fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
                      struct fuse_file_info *fi) {
 // You fill this in for Lab 2
-#if 0
-  std::string buf;
-  // Change the above "#if 0" to "#if 1", and your code goes here
-  fuse_reply_buf(req, buf.data(), buf.size());
-#else
-    fuse_reply_err(req, ENOSYS);
-#endif
+    std::string buf;
+    // Change the above "#if 0" to "#if 1", and your code goes here
+    auto r = yfs->read(ino, buf, size, off);
+    if(r == yfs_client::OK) {
+        fuse_reply_buf(req, buf.data(), buf.size());
+    }
+    else {
+        fuse_reply_err(req, ENOSYS);
+    }
 }
 
 //
@@ -171,12 +175,13 @@ void fuseserver_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
 void fuseserver_write(fuse_req_t req, fuse_ino_t ino, const char *buf,
                       size_t size, off_t off, struct fuse_file_info *fi) {
 // You fill this in for Lab 2
-#if 0
   // Change the above line to "#if 1", and your code goes here
-  fuse_reply_write(req, size);
-#else
+  auto r = yfs->write(ino, buf, size, off);
+  if (r == yfs_client::OK) {
+    fuse_reply_write(req, size);
+  } else {
     fuse_reply_err(req, ENOSYS);
-#endif
+  }
 }
 
 //
@@ -208,12 +213,11 @@ yfs_client::status fuseserver_createhelper(fuse_ino_t parent, const char *name,
     // You fill this in for Lab 2
     yfs_client::inum ino;
     auto r = yfs->create(parent, std::string(name), ino);
-    if(r == yfs_client::OK) {
-        e->ino= ino;
+    if (r == yfs_client::OK) {
+        e->ino = ino;
         getattr(ino, e->attr);
         return yfs_client::OK;
-    }
-    else {
+    } else {
         return r;
     }
 }
@@ -267,7 +271,7 @@ void fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name) {
     // You fill this in for Lab 2
     yfs_client::inum ino;
     auto r = yfs->lookup(parent, std::string(name), ino);
-    if(r == yfs_client::OK) { 
+    if (r == yfs_client::OK) {
         e.ino = ino;
         getattr(ino, e.attr);
         found = true;
@@ -330,11 +334,11 @@ void fuseserver_readdir(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
     // You fill this in for Lab 2
     std::map<std::string, yfs_client::inum> files;
     auto r = yfs->readdir(inum, files);
-    if(r!=yfs_client::OK)  {
+    if (r != yfs_client::OK) {
         fuse_reply_err(req, EIO);
         return;
     }
-    for(auto& file:files) {
+    for (auto &file : files) {
         dirbuf_add(&b, file.first.c_str(), file.second);
     }
 

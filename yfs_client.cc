@@ -12,7 +12,7 @@
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst) {
     ec = new extent_client(extent_dst);
     srand(time(0));
-    //ec->put(1, "");
+    // ec->put(1, "");
 }
 
 yfs_client::inum yfs_client::n2i(std::string n) {
@@ -73,16 +73,59 @@ release:
     return r;
 }
 
-yfs_client::inum yfs_client::random_ino_(){
+int yfs_client::truncate(inum file, size_t size) {
+    std::string file_buf;
+    ec->get(file, file_buf);
+    if(size < file_buf.size()) {
+        file_buf = file_buf.substr(0, size);
+    }
+    else {
+        file_buf += std::string(size - file_buf.size(), '\0');
+    }
+    ec->put(file, file_buf);
+    return OK;
+}
+
+int yfs_client::read(inum file, std::string& buf, size_t size, size_t off) {
+    std::string file_buf;
+    extent_protocol::attr attr;
+    ec->getattr(file, attr);
+    if(off >= attr.size) {
+        return OK; 
+    }
+    ec->get(file, file_buf);
+    buf = file_buf.substr(off, size);
+    return OK;
+}
+int yfs_client::write(inum file, std::string buf, size_t size, size_t off) {
+    std::string file_buf;
+    std::string new_write_buf;
+    ec->get(file, file_buf);
+    if(off < file_buf.size()) {
+        std::string buf1 = file_buf.substr(0, off);
+        std::string buf2 = buf.substr(0, size);
+        new_write_buf = buf1 + buf2;
+        if(off + size < file_buf.size()) {
+            new_write_buf += file_buf.substr(off + size);
+        } 
+    } else {
+        std::string hole = std::string(off - file_buf.size(), '\0'); 
+        new_write_buf = file_buf + hole + buf.substr(0, size);
+    }
+    ec->put(file, new_write_buf);
+    return OK;
+}
+
+yfs_client::inum yfs_client::random_ino_() {
     inum ino = (inum)rand() | 0x80000000;
     return ino;
 }
 
-int yfs_client::create(inum parent, std::string name, inum& ret_ino) { 
+int yfs_client::create(inum parent, std::string name, inum &ret_ino) {
     inum ino;
     std::string parent_buf;
-    if(lookup(parent, name, ino) == OK) {
-        return EXIST; 
+    if (lookup(parent, name, ino) == OK) {
+        return EXIST;
     }
     ino = random_ino_();
     ec->put(ino, "");
@@ -94,18 +137,18 @@ int yfs_client::create(inum parent, std::string name, inum& ret_ino) {
     return OK;
 }
 
-int yfs_client::lookup(inum parent, std::string name, inum& ret_ino) { 
+int yfs_client::lookup(inum parent, std::string name, inum &ret_ino) {
     std::string buf;
     std::string::size_type pos = -1, last_pos = -1;
     auto r = ec->get(parent, buf);
-    if(r != OK) return IOERR;
-    while((pos = buf.find(",", pos + 1)) != std::string::npos) {
+    if (r != OK) return IOERR;
+    while ((pos = buf.find(",", pos + 1)) != std::string::npos) {
         std::string file_entry = buf.substr(last_pos + 1, pos - last_pos - 1);
         auto divide_pos = file_entry.find(":");
         auto file_name = file_entry.substr(0, divide_pos);
         auto file_ino = n2i(file_entry.substr(divide_pos + 1));
         last_pos = pos;
-        if(file_name == name) {
+        if (file_name == name) {
             ret_ino = file_ino;
             return OK;
         }
@@ -113,19 +156,20 @@ int yfs_client::lookup(inum parent, std::string name, inum& ret_ino) {
     return NOENT;
 }
 
-int yfs_client::readdir(inum dir, std::map<std::string, inum>& files) {
+int yfs_client::readdir(inum dir, std::map<std::string, inum> &files) {
     std::string buf;
     std::string::size_type pos = -1, last_pos = -1;
-    //bool is_parent_name = true;
+    // bool is_parent_name = true;
     auto r = ec->get(dir, buf);
-    if(r != OK) return IOERR;
-    while((pos = buf.find_first_of(",", pos + 1)) != std::string::npos) {
+    if (r != OK) return IOERR;
+    while ((pos = buf.find_first_of(",", pos + 1)) != std::string::npos) {
         std::string file_entry = buf.substr(last_pos + 1, pos - last_pos - 1);
         auto divide_pos = file_entry.find(":");
         auto file_name = file_entry.substr(0, divide_pos);
         auto file_ino = n2i(file_entry.substr(divide_pos + 1));
         last_pos = pos;
-        files[file_name] = file_ino;      
-    }          
-    return OK; 
+        files[file_name] = file_ino;
+    }
+    return OK;
 }
+

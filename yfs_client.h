@@ -44,9 +44,12 @@ class yfs_client {
     int getfile(inum, fileinfo &);
     int getdir(inum, dirinfo &);
 
-    int create(inum parent, std::string name, inum& ret_ino);
-    int lookup(inum parent, std::string name, inum& ret_ino);
-    int readdir(inum dir, std::map<std::string, inum>& files);
+    int create(inum parent, std::string name, inum &ret_ino);
+    int lookup(inum parent, std::string name, inum &ret_ino);
+    int readdir(inum dir, std::map<std::string, inum> &files);
+    int read(inum file, std::string& buf, size_t size, size_t off);
+    int write(inum file, std::string buf, size_t size, size_t off);
+    int truncate(inum file, size_t size);
 };
 
 #endif
