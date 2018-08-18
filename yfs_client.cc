@@ -1,6 +1,10 @@
 // yfs client.  implements FS operations using extent and lock server
 #include "yfs_client.h"
 #include <fcntl.h>
+#include "extent_client.h"
+#include "lock_client.h"
+#include <sstream>
+#include <iostream>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -35,8 +39,17 @@ bool yfs_client::isfile(inum inum) {
 
 bool yfs_client::isdir(inum inum) { return !isfile(inum); }
 
+<<<<<<< HEAD
 int yfs_client::getfile(inum inum, fileinfo &fin) {
     int r = OK;
+=======
+int
+yfs_client::getfile(inum inum, fileinfo &fin)
+{
+  int r = OK;
+  // You modify this function for Lab 3
+  // - hold and release the file lock
+>>>>>>> 8a7574edd36e5062d002cd3aa54e723fb24e69ad
 
     printf("getfile %016llx\n", inum);
     extent_protocol::attr a;
@@ -56,21 +69,26 @@ release:
     return r;
 }
 
-int yfs_client::getdir(inum inum, dirinfo &din) {
-    int r = OK;
 
-    printf("getdir %016llx\n", inum);
-    extent_protocol::attr a;
-    if (ec->getattr(inum, a) != extent_protocol::OK) {
-        r = IOERR;
-        goto release;
-    }
-    din.atime = a.atime;
-    din.mtime = a.mtime;
-    din.ctime = a.ctime;
+int
+yfs_client::getdir(inum inum, dirinfo &din)
+{
+  int r = OK;
+  // You modify this function for Lab 3
+  // - hold and release the directory lock
 
-release:
-    return r;
+  printf("getdir %016llx\n", inum);
+  extent_protocol::attr a;
+  if (ec->getattr(inum, a) != extent_protocol::OK) {
+    r = IOERR;
+    goto release;
+  }
+  din.atime = a.atime;
+  din.mtime = a.mtime;
+  din.ctime = a.ctime;
+
+ release:
+  return r;
 }
 
 int yfs_client::truncate(inum file, size_t size) {
