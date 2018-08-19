@@ -148,6 +148,9 @@ int yfs_client::write(inum file, std::string buf, size_t size, size_t off) {
     if(off < file_buf.size()) {
         std::string buf1 = file_buf.substr(0, off);
         std::string buf2 = buf.substr(0, size);
+        if(size > buf.size()) {
+            buf2 += std::string(size - buf.size(), '\0'); 
+        }
         new_write_buf = buf1 + buf2;
         if(off + size < file_buf.size()) {
             new_write_buf += file_buf.substr(off + size);
@@ -155,6 +158,9 @@ int yfs_client::write(inum file, std::string buf, size_t size, size_t off) {
     } else {
         std::string hole = std::string(off - file_buf.size(), '\0'); 
         new_write_buf = file_buf + hole + buf.substr(0, size);
+        if(size > buf.size()) {
+            new_write_buf += std::string(size - buf.size(), '\0'); 
+        }
     }
     ec->put(file, new_write_buf);
     return OK;
