@@ -1,22 +1,22 @@
 // yfs client.  implements FS operations using extent and lock server
 #include "yfs_client.h"
 #include <fcntl.h>
-#include "extent_client.h"
-#include "lock_client.h"
-#include <sstream>
-#include <iostream>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <iostream>
+#include <iostream>
 #include <sstream>
+#include <sstream>
+#include "dlock.h"
 #include "extent_client.h"
+#include "extent_client.h"
+#include "lock_client.h"
 
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst) {
     ec = new extent_client(extent_dst);
-    srand(time(0));
-    // ec->put(1, "");
+    lc = new lock_client(lock_dst);
 }
 
 yfs_client::inum yfs_client::n2i(std::string n) {
@@ -39,12 +39,10 @@ bool yfs_client::isfile(inum inum) {
 
 bool yfs_client::isdir(inum inum) { return !isfile(inum); }
 
-int
-yfs_client::getfile(inum inum, fileinfo &fin)
-{
-  int r = OK;
-  // You modify this function for Lab 3
-  // - hold and release the file lock
+int yfs_client::getfile(inum inum, fileinfo &fin) {
+    int r = OK;
+    // You modify this function for Lab 3
+    // - hold and release the file lock
 
     printf("getfile %016llx\n", inum);
     extent_protocol::attr a;
@@ -64,33 +62,31 @@ release:
     return r;
 }
 
+int yfs_client::getdir(inum inum, dirinfo &din) {
+    int r = OK;
+    // You modify this function for Lab 3
+    // - hold and release the directory lock
 
-int
-yfs_client::getdir(inum inum, dirinfo &din)
-{
-  int r = OK;
-  // You modify this function for Lab 3
-  // - hold and release the directory lock
+    printf("getdir %016llx\n", inum);
+    extent_protocol::attr a;
+    if (ec->getattr(inum, a) != extent_protocol::OK) {
+        r = IOERR;
+        goto release;
+    }
+    din.atime = a.atime;
+    din.mtime = a.mtime;
+    din.ctime = a.ctime;
 
-  printf("getdir %016llx\n", inum);
-  extent_protocol::attr a;
-  if (ec->getattr(inum, a) != extent_protocol::OK) {
-    r = IOERR;
-    goto release;
-  }
-  din.atime = a.atime;
-  din.mtime = a.mtime;
-  din.ctime = a.ctime;
-
- release:
-  return r;
+release:
+    return r;
 }
 
-int yfs_client::unlink(inum parent, std::string name){
+int yfs_client::unlink(inum parent, std::string name) {
     inum ino;
     std::string parent_buf;
-    if(isfile(parent)) return IOERR;
-    if(lookup(parent, name, ino) != OK) return IOERR;
+    Dlock d(lc, parent);
+    if (isfile(parent)) return IOERR;
+    if (lookup(parent, name, ino) != OK) return IOERR;
 
     ec->remove(ino);
     ec->get(parent, parent_buf);
@@ -104,38 +100,39 @@ int yfs_client::unlink(inum parent, std::string name){
 int yfs_client::mkdir(inum parent, std::string name, inum &ret_ino) {
     inum ino;
     std::string parent_buf;
-    if(lookup(parent, name, ino) == OK) return EXIST;
+    Dlock d(lc, parent);
+    if (lookup(parent, name, ino) == OK) return EXIST;
     ino = random_ino_(false);
-    if(isfile(ino)) return IOERR;
+    if (isfile(ino)) return IOERR;
     ec->put(ino, "");
 
     ec->get(parent, parent_buf);
     parent_buf.append(name + ":" + std::to_string(ino) + ",");
     ec->put(parent, parent_buf);
     ret_ino = ino;
-    
+
     return OK;
 }
 
 int yfs_client::truncate(inum file, size_t size) {
     std::string file_buf;
+    Dlock d(lc, file);
     ec->get(file, file_buf);
-    if(size < file_buf.size()) {
+    if (size < file_buf.size()) {
         file_buf = file_buf.substr(0, size);
-    }
-    else {
+    } else {
         file_buf += std::string(size - file_buf.size(), '\0');
     }
     ec->put(file, file_buf);
     return OK;
 }
 
-int yfs_client::read(inum file, std::string& buf, size_t size, size_t off) {
+int yfs_client::read(inum file, std::string &buf, size_t size, size_t off) {
     std::string file_buf;
     extent_protocol::attr attr;
     ec->getattr(file, attr);
-    if(off >= attr.size) {
-        return OK; 
+    if (off >= attr.size) {
+        return OK;
     }
     ec->get(file, file_buf);
     buf = file_buf.substr(off, size);
@@ -144,22 +141,23 @@ int yfs_client::read(inum file, std::string& buf, size_t size, size_t off) {
 int yfs_client::write(inum file, std::string buf, size_t size, size_t off) {
     std::string file_buf;
     std::string new_write_buf;
+    Dlock d(lc, file);
     ec->get(file, file_buf);
-    if(off < file_buf.size()) {
+    if (off < file_buf.size()) {
         std::string buf1 = file_buf.substr(0, off);
         std::string buf2 = buf.substr(0, size);
-        if(size > buf.size()) {
-            buf2 += std::string(size - buf.size(), '\0'); 
+        if (size > buf.size()) {
+            buf2 += std::string(size - buf.size(), '\0');
         }
         new_write_buf = buf1 + buf2;
-        if(off + size < file_buf.size()) {
+        if (off + size < file_buf.size()) {
             new_write_buf += file_buf.substr(off + size);
-        } 
+        }
     } else {
-        std::string hole = std::string(off - file_buf.size(), '\0'); 
+        std::string hole = std::string(off - file_buf.size(), '\0');
         new_write_buf = file_buf + hole + buf.substr(0, size);
-        if(size > buf.size()) {
-            new_write_buf += std::string(size - buf.size(), '\0'); 
+        if (size > buf.size()) {
+            new_write_buf += std::string(size - buf.size(), '\0');
         }
     }
     ec->put(file, new_write_buf);
@@ -168,8 +166,8 @@ int yfs_client::write(inum file, std::string buf, size_t size, size_t off) {
 
 yfs_client::inum yfs_client::random_ino_(bool is_file) {
     inum ino = (inum)rand() | 0x80000000;
-    if(!is_file) {
-        ino &= (~(1<<31));
+    if (!is_file) {
+        ino &= (~(1 << 31));
     }
     return ino;
 }
@@ -177,6 +175,7 @@ yfs_client::inum yfs_client::random_ino_(bool is_file) {
 int yfs_client::create(inum parent, std::string name, inum &ret_ino) {
     inum ino;
     std::string parent_buf;
+    Dlock d(lc, parent);
     if (lookup(parent, name, ino) == OK) {
         return EXIST;
     }
@@ -225,4 +224,3 @@ int yfs_client::readdir(inum dir, std::map<std::string, inum> &files) {
     }
     return OK;
 }
-
