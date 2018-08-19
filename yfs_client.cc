@@ -86,6 +86,37 @@ yfs_client::getdir(inum inum, dirinfo &din)
   return r;
 }
 
+int yfs_client::unlink(inum parent, std::string name){
+    inum ino;
+    std::string parent_buf;
+    if(isfile(parent)) return IOERR;
+    if(lookup(parent, name, ino) != OK) return IOERR;
+
+    ec->remove(ino);
+    ec->get(parent, parent_buf);
+    auto begin_pos = parent_buf.find(name);
+    auto finish_pos = parent_buf.find(',', begin_pos);
+    parent_buf.erase(begin_pos, finish_pos - begin_pos + 1);
+    ec->put(parent, parent_buf);
+    return OK;
+}
+
+int yfs_client::mkdir(inum parent, std::string name, inum &ret_ino) {
+    inum ino;
+    std::string parent_buf;
+    if(lookup(parent, name, ino) == OK) return EXIST;
+    ino = random_ino_(false);
+    if(isfile(ino)) return IOERR;
+    ec->put(ino, "");
+
+    ec->get(parent, parent_buf);
+    parent_buf.append(name + ":" + std::to_string(ino) + ",");
+    ec->put(parent, parent_buf);
+    ret_ino = ino;
+    
+    return OK;
+}
+
 int yfs_client::truncate(inum file, size_t size) {
     std::string file_buf;
     ec->get(file, file_buf);
@@ -129,8 +160,11 @@ int yfs_client::write(inum file, std::string buf, size_t size, size_t off) {
     return OK;
 }
 
-yfs_client::inum yfs_client::random_ino_() {
+yfs_client::inum yfs_client::random_ino_(bool is_file) {
     inum ino = (inum)rand() | 0x80000000;
+    if(!is_file) {
+        ino &= (~(1<<31));
+    }
     return ino;
 }
 
@@ -140,7 +174,7 @@ int yfs_client::create(inum parent, std::string name, inum &ret_ino) {
     if (lookup(parent, name, ino) == OK) {
         return EXIST;
     }
-    ino = random_ino_();
+    ino = random_ino_(true);
     ec->put(ino, "");
 
     ec->get(parent, parent_buf);

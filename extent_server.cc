@@ -31,6 +31,7 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &) {
     } else {
        iter->second.buf = buf;
        iter->second.attr.size = buf.size();
+       iter->second.attr.ctime = time(0);
        iter->second.attr.mtime = time(0);
        iter->second.attr.atime = time(0);
     }

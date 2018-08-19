@@ -5,8 +5,8 @@
 //#include "yfs_protocol.h"
 #include <vector>
 #include "extent_client.h"
-#include "lock_protocol.h"
 #include "lock_client.h"
+#include "lock_protocol.h"
 
 class yfs_client {
     extent_client *ec;
@@ -35,7 +35,7 @@ class yfs_client {
    private:
     static std::string filename(inum);
     static inum n2i(std::string);
-    inum random_ino_();
+    inum random_ino_(bool is_file);
 
    public:
     yfs_client(std::string, std::string);
@@ -49,9 +49,11 @@ class yfs_client {
     int create(inum parent, std::string name, inum &ret_ino);
     int lookup(inum parent, std::string name, inum &ret_ino);
     int readdir(inum dir, std::map<std::string, inum> &files);
-    int read(inum file, std::string& buf, size_t size, size_t off);
+    int read(inum file, std::string &buf, size_t size, size_t off);
     int write(inum file, std::string buf, size_t size, size_t off);
     int truncate(inum file, size_t size);
+    int mkdir(inum parent, std::string name, inum &ret_ino);
+    int unlink(inum parent, std::string name);
 };
 
 #endif
