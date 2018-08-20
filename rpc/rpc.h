@@ -252,120 +252,123 @@ class handler {
 
 // rpc server endpoint.
 class rpcs : public chanmgr {
-    typedef enum {
-        NEW,         // new RPC, not a duplicate
-        INPROGRESS,  // duplicate of an RPC we're still processing
-        DONE,        // duplicate of an RPC we already replied to (have reply)
-        FORGOTTEN,   // duplicate of an old RPC whose reply we've forgotten
-    } rpcstate_t;
+	typedef enum {
+		NEW,  // new RPC, not a duplicate
+		INPROGRESS, // duplicate of an RPC we're still processing
+		DONE, // duplicate of an RPC we already replied to (have reply)
+		FORGOTTEN,  // duplicate of an old RPC whose reply we've forgotten
+	} rpcstate_t;
 
-   private:
-    // state about an in-progress or completed RPC, for at-most-once.
-    // if cb_present is true, then the RPC is complete and a reply
-    // has been sent; in that case buf points to a copy of the reply,
-    // and sz holds the size of the reply.
-    struct reply_t {
-        reply_t(unsigned int _xid) {
-            xid = _xid;
-            cb_present = false;
-            buf = NULL;
-            sz = 0;
-        }
-        unsigned int xid;
-        bool cb_present;  // whether the reply buffer is valid
-        char *buf;        // the reply buffer
-        int sz;           // the size of reply buffer
-    };
+	private:
 
-    int port_;
-    unsigned int nonce_;
+        // state about an in-progress or completed RPC, for at-most-once.
+        // if cb_present is true, then the RPC is complete and a reply
+        // has been sent; in that case buf points to a copy of the reply,
+        // and sz holds the size of the reply.
+	struct reply_t {
+		reply_t (unsigned int _xid) {
+			xid = _xid;
+			cb_present = false;
+			buf = NULL;
+			sz = 0;
+		}
+		unsigned int xid;
+		bool cb_present; // whether the reply buffer is valid
+		char *buf;      // the reply buffer
+		int sz;         // the size of reply buffer
+	};
 
-    // provide at most once semantics by maintaining a window of replies
-    // per client that that client hasn't acknowledged receiving yet.
-    // indexed by client nonce.
-    std::map<unsigned int, std::list<reply_t> > reply_window_;
+	int port_;
+	unsigned int nonce_;
 
-    void free_reply_window(void);
-    void add_reply(unsigned int clt_nonce, unsigned int xid, char *b, int sz);
+	// provide at most once semantics by maintaining a window of replies
+	// per client that that client hasn't acknowledged receiving yet.
+        // indexed by client nonce.
+	std::map<unsigned int, std::list<reply_t> > reply_window_;
 
-    rpcstate_t checkduplicate_and_update(unsigned int clt_nonce,
-                                         unsigned int xid, unsigned int rep_xid,
-                                         char **b, int *sz);
+	void free_reply_window(void);
+	void add_reply(unsigned int clt_nonce, unsigned int xid, char *b, int sz);
 
-    void updatestat(unsigned int proc);
+	rpcstate_t checkduplicate_and_update(unsigned int clt_nonce, 
+			unsigned int xid, unsigned int rep_xid,
+			char **b, int *sz);
 
-    // latest connection to the client
-    std::map<unsigned int, connection *> conns_;
+	void updatestat(unsigned int proc);
 
-    // counting
-    const int counting_;
-    int curr_counts_;
-    std::map<int, int> counts_;
+	// latest connection to the client
+	std::map<unsigned int, connection *> conns_;
 
-    int lossytest_;
-    bool reachable_;
+	// counting
+	const int counting_;
+	int curr_counts_;
+	std::map<int, int> counts_;
 
-    // map proc # to function
-    std::map<int, handler *> procs_;
+	int lossytest_; 
+	bool reachable_;
 
-    pthread_mutex_t procs_m_;         // protect insert/delete to procs[]
-    pthread_mutex_t count_m_;         // protect modification of counts
-    pthread_mutex_t reply_window_m_;  // protect reply window et al
-    pthread_mutex_t conss_m_;         // protect conns_
+	// map proc # to function
+	std::map<int, handler *> procs_;
 
-   protected:
-    struct djob_t {
-        djob_t(connection *c, char *b, int bsz) : buf(b), sz(bsz), conn(c) {}
-        char *buf;
-        int sz;
-        connection *conn;
-    };
-    void dispatch(djob_t *);
+	pthread_mutex_t procs_m_; // protect insert/delete to procs[]
+	pthread_mutex_t count_m_;  //protect modification of counts
+	pthread_mutex_t reply_window_m_; // protect reply window et al
+	pthread_mutex_t conss_m_; // protect conns_
 
-    // internal handler registration
-    void reg1(unsigned int proc, handler *);
 
-    ThrPool *dispatchpool_;
-    tcpsconn *listener_;
+	protected:
 
-   public:
-    rpcs(unsigned int port, int counts = 0);
-    ~rpcs();
+	struct djob_t {
+		djob_t (connection *c, char *b, int bsz):buf(b),sz(bsz),conn(c) {}
+		char *buf;
+		int sz;
+		connection *conn;
+	};
+	void dispatch(djob_t *);
 
-    // RPC handler for clients binding
-    int rpcbind(int a, int &r);
+	// internal handler registration
+	void reg1(unsigned int proc, handler *);
 
-    void set_reachable(bool r) { reachable_ = r; }
+	ThrPool* dispatchpool_;
+	tcpsconn* listener_;
 
-    bool got_pdu(connection *c, char *b, int sz);
+	public:
+	rpcs(unsigned int port, int counts=0);
+	~rpcs();
+        inline int port() { return listener_->port(); }
+	//RPC handler for clients binding
+	int rpcbind(int a, int &r);
 
-    // register a handler
-    template <class S, class A1, class R>
-    void reg(unsigned int proc, S *, int (S::*meth)(const A1 a1, R &r));
-    template <class S, class A1, class A2, class R>
-    void reg(unsigned int proc, S *,
-             int (S::*meth)(const A1 a1, const A2, R &r));
-    template <class S, class A1, class A2, class A3, class R>
-    void reg(unsigned int proc, S *,
-             int (S::*meth)(const A1, const A2, const A3, R &r));
-    template <class S, class A1, class A2, class A3, class A4, class R>
-    void reg(unsigned int proc, S *,
-             int (S::*meth)(const A1, const A2, const A3, const A4, R &r));
-    template <class S, class A1, class A2, class A3, class A4, class A5,
-              class R>
-    void reg(unsigned int proc, S *,
-             int (S::*meth)(const A1, const A2, const A3, const A4, const A5,
-                            R &r));
-    template <class S, class A1, class A2, class A3, class A4, class A5,
-              class A6, class R>
-    void reg(unsigned int proc, S *,
-             int (S::*meth)(const A1, const A2, const A3, const A4, const A5,
-                            const A6, R &r));
-    template <class S, class A1, class A2, class A3, class A4, class A5,
-              class A6, class A7, class R>
-    void reg(unsigned int proc, S *,
-             int (S::*meth)(const A1, const A2, const A3, const A4, const A5,
-                            const A6, const A7, R &r));
+	void set_reachable(bool r) { reachable_ = r; }
+
+	bool got_pdu(connection *c, char *b, int sz);
+
+	// register a handler
+	template<class S, class A1, class R>
+		void reg(unsigned int proc, S*, int (S::*meth)(const A1 a1, R & r));
+	template<class S, class A1, class A2, class R>
+		void reg(unsigned int proc, S*, int (S::*meth)(const A1 a1, const A2, 
+					R & r));
+	template<class S, class A1, class A2, class A3, class R>
+		void reg(unsigned int proc, S*, int (S::*meth)(const A1, const A2, 
+					const A3, R & r));
+	template<class S, class A1, class A2, class A3, class A4, class R>
+		void reg(unsigned int proc, S*, int (S::*meth)(const A1, const A2, 
+					const A3, const A4, R & r));
+	template<class S, class A1, class A2, class A3, class A4, class A5, class R>
+		void reg(unsigned int proc, S*, int (S::*meth)(const A1, const A2, 
+					const A3, const A4, const A5, 
+					R & r));
+	template<class S, class A1, class A2, class A3, class A4, class A5, class A6,
+		class R>
+			void reg(unsigned int proc, S*, int (S::*meth)(const A1, const A2, 
+						const A3, const A4, const A5, 
+						const A6, R & r));
+	template<class S, class A1, class A2, class A3, class A4, class A5, class A6,
+		class A7, class R>
+			void reg(unsigned int proc, S*, int (S::*meth)(const A1, const A2, 
+						const A3, const A4, const A5, 
+						const A6, const A7,
+						R & r));
 };
 
 template <class S, class A1, class R>
