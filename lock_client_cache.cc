@@ -25,21 +25,95 @@ lock_client_cache::lock_client_cache(std::string xdst,
 
 lock_protocol::status lock_client_cache::acquire(lock_protocol::lockid_t lid) {
     int ret = lock_protocol::OK;
-    return lock_protocol::OK;
+    pthread_mutex_lock(&mtx);
+    std::cout << id  << " acqure lock " << lid << std::endl;
+    auto iter = lock_cache.find(lid);
+    auto tid = pthread_self();
+    if(iter == lock_cache.end() ) {
+        if(lock_cache.size() > 0) {
+            std::cout << lock_cache[1].owned_thread<< "xxxxxxxxxxxxxxxxx" << std::endl;
+        }
+        std::cout << id  << " call server acqure lock " << lid <<std::endl;
+        pthread_mutex_unlock(&mtx);
+        cl->call(lock_protocol::acquire, lid, id, ret);
+        pthread_mutex_lock(&mtx);
+        if(ret == lock_protocol::OK) {
+            struct lock_attr la;
+            la.status = rlock_protocol::LOCKED;
+            la.owned_thread = tid;
+            lock_cache[lid] = la;
+        }
+        std::cout << id  << " acqure lock " << lid << " done "<<std::endl;
+        pthread_mutex_unlock(&mtx);
+    } else {
+        if(iter->second.status == rlock_protocol::FREE && iter->second.owned_thread == 0) {
+            iter->second.status = rlock_protocol::LOCKED;
+            iter->second.owned_thread = tid;
+        }
+        while(iter->second.status == rlock_protocol::LOCKED && iter->second.owned_thread != tid){
+            //wait for other thread to release;
+            pthread_cond_wait(&cond, &mtx);   
+        }    
+        std::cout << id  << " acqure lock " << lid << " done "<<std::endl;
+        pthread_mutex_unlock(&mtx);
+    }
+    return ret;
 }
 
 lock_protocol::status lock_client_cache::release(lock_protocol::lockid_t lid) {
-    return lock_protocol::OK;
+    int ret = lock_protocol::OK;
+    pthread_mutex_lock(&mtx);
+    std::cout << id  << " release lock " << lid <<std::endl;
+    auto iter = lock_cache.find(lid);
+    if(iter == lock_cache.end()){
+        ret = lock_protocol::NOENT;
+    } else {
+        if(iter->second.status != rlock_protocol::LOCKED) {
+            ret = lock_protocol::IOERR;
+        }
+        else {
+            iter->second.status = rlock_protocol::FREE;
+            iter->second.owned_thread = 0;
+            pthread_cond_signal(&cond);
+        }
+    }
+    std::cout << id  << " release lock " << lid << " done "<<std::endl;
+    pthread_mutex_unlock(&mtx);
+    return ret;
 }
 
 rlock_protocol::status lock_client_cache::revoke_handler(
     lock_protocol::lockid_t lid, int &) {
     int ret = rlock_protocol::OK;
+    pthread_mutex_lock(&mtx);
+    std::cout << id  << " revoke lock " << lid <<std::endl;
+    auto iter = lock_cache.find(lid);
+    if(iter == lock_cache.end()) {
+        ret = rlock_protocol::RPCERR;
+    } else {
+        while(iter->second.status != rlock_protocol::FREE) {
+            pthread_cond_wait(&cond, &mtx);   
+        }
+        lock_cache.erase(lid);
+    }
+    std::cout << id  << " revoke lock " << lid<< " done " <<std::endl;
+    pthread_mutex_unlock(&mtx);
     return ret;
 }
 
 rlock_protocol::status lock_client_cache::retry_handler(
     lock_protocol::lockid_t lid, int &) {
+    pthread_mutex_lock(&mtx);
+    std::cout << id  << " retry lock " << lid <<std::endl;
     int ret = rlock_protocol::OK;
+    auto iter = lock_cache.find(lid);
+    if(iter != lock_cache.end()) {
+        pthread_mutex_unlock(&mtx);
+        return rlock_protocol::RPCERR;
+    } else {
+        pthread_mutex_unlock(&mtx);
+        ret = acquire(lid);
+    }
+    std::cout << id  << " retry lock " << lid<< " done " <<std::endl;
     return ret;
 }
