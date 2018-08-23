@@ -24,12 +24,14 @@ class lock_client_cache : public lock_client {
     class lock_release_user *lu;
     struct lock_attr {
         pthread_t owned_thread;
+        bool revoke = false;
         rlock_protocol::client_status status;
     };
     int rlock_port;
     std::string hostname;
     std::string id;
     std::map<lock_protocol::lockid_t, lock_attr> lock_cache;
+    std::map<lock_protocol::lockid_t, rlock_protocol::client_status> client_status;
     pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
     pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
     std::list<lock_protocol::lockid_t> wait_to_revoke;
