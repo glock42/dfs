@@ -6,17 +6,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <iostream>
-#include <iostream>
-#include <sstream>
 #include <sstream>
 #include "dlock.h"
 #include "extent_client.h"
-#include "extent_client.h"
-#include "lock_client.h"
+#include "lock_client_cache.h"
 
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst) {
     ec = new extent_client(extent_dst);
-    lc = new lock_client(lock_dst);
+    lc = new lock_client_cache(lock_dst);
 }
 
 yfs_client::inum yfs_client::n2i(std::string n) {

@@ -5,7 +5,7 @@
 //#include "yfs_protocol.h"
 #include <vector>
 #include "extent_client.h"
-#include "lock_client.h"
+#include "lock_client_cache.h"
 #include "lock_protocol.h"
 
 class yfs_client {
@@ -36,7 +36,7 @@ class yfs_client {
     static std::string filename(inum);
     static inum n2i(std::string);
     inum random_ino_(bool is_file);
-    lock_client *lc;
+    lock_client_cache *lc;
 
    public:
     yfs_client(std::string, std::string);

@@ -39,6 +39,7 @@ int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id,
                 pthread_mutex_unlock(&mtx);
                 h.safebind()->call(rlock_protocol::revoke, lid, r);
             } else {
+                tprintf("%d lock has no other waiter, only %s \n", int(lid), id.c_str());
                 pthread_mutex_unlock(&mtx);
             }
             tprintf("%s reacquire lock %d done\n", id.c_str(), int(lid));
@@ -48,16 +49,11 @@ int lock_server_cache::acquire(lock_protocol::lockid_t lid, std::string id,
                 lc.wait_clients.push_back(id);
                 handle h(lc.owned_client);
                 rpcc *cl = h.safebind();
-                if(cl) {
-                    tprintf("%s try revoke lock %d \n", id.c_str(), int(lid));
-                    pthread_mutex_unlock(&mtx);
-                    cl->call(rlock_protocol::revoke, lid, r);
-                    ret = lock_protocol::RETRY;
-                    tprintf("%s revoke lock %d done\n", id.c_str(), int(lid));
-                } else {
-                    pthread_mutex_unlock(&mtx);
-                    ret = lock_protocol::RPCERR;
-                }
+                tprintf("%s try revoke lock %d \n", id.c_str(), int(lid));
+                pthread_mutex_unlock(&mtx);
+                cl->call(rlock_protocol::revoke, lid, r);
+                ret = lock_protocol::RETRY;
+                tprintf("%s revoke lock %d done\n", id.c_str(), int(lid));
             }
             else {
                 lc.wait_clients.push_back(id);
@@ -93,13 +89,8 @@ int lock_server_cache::release(lock_protocol::lockid_t lid, std::string id,
                 tprintf("server call %s retry lock %d \n", client_id.c_str(), int(lid));
                 handle h(client_id);
                 rpcc *cl = h.safebind();
-                if(cl) {
-                    pthread_mutex_unlock(&mtx);
-                    ret = cl->call(rlock_protocol::retry, lid, r);
-                } else {
-                    ret = lock_protocol::RPCERR;
-                    pthread_mutex_unlock(&mtx);
-                }
+                pthread_mutex_unlock(&mtx);
+                ret = cl->call(rlock_protocol::retry, lid, r);
             } else {
                 pthread_mutex_unlock(&mtx);
             }

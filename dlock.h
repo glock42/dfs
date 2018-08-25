@@ -1,12 +1,12 @@
 #ifndef __DISTRIBUTED_LOCK__
 #define __DISTRIBUTED_LOCK__
 #include "yfs_client.h"
-#include "lock_client.h"
+#include "lock_client_cache.h"
 #include "lang/verify.h"
 struct Dlock {
 
     public:
-        Dlock(lock_client *lc, yfs_client::inum ino):lc(lc), ino(ino) {
+        Dlock(lock_client_cache *lc, yfs_client::inum ino):lc(lc), ino(ino) {
             printf("start acquire  %016llx \n", ino);
             VERIFY(lc->acquire(ino) == lock_protocol::OK);
             printf("acquire successd  %016llx \n", ino);

@@ -21,7 +21,7 @@ class lock_protocol {
 class rlock_protocol {
  public:
   enum xxstatus { OK, RPCERR };
-  enum client_status{NONE, FREE, LOCKED, ACQUIRING, RELEASING, REVOKING};
+  enum client_status{NONE, FREE, LOCKED, ACQUIRING, RELEASING};
   typedef int status;
   enum rpc_numbers {
     revoke = 0x8001,
