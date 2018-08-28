@@ -10,10 +10,12 @@
 #include "dlock.h"
 #include "extent_client.h"
 #include "lock_client_cache.h"
+#include "tprintf.h"
 
 yfs_client::yfs_client(std::string extent_dst, std::string lock_dst) {
     ec = new extent_client(extent_dst);
-    lc = new lock_client_cache(lock_dst);
+    lc = new lock_client_cache(lock_dst, new lock_release_extent(ec));
+    ec->put(1, "");
 }
 
 yfs_client::inum yfs_client::n2i(std::string n) {
@@ -40,7 +42,7 @@ int yfs_client::getfile(inum inum, fileinfo &fin) {
     int r = OK;
     // You modify this function for Lab 3
     // - hold and release the file lock
-
+    Dlock d(lc, inum);
     printf("getfile %016llx\n", inum);
     extent_protocol::attr a;
     if (ec->getattr(inum, a) != extent_protocol::OK) {
@@ -63,6 +65,7 @@ int yfs_client::getdir(inum inum, dirinfo &din) {
     int r = OK;
     // You modify this function for Lab 3
     // - hold and release the directory lock
+    Dlock d(lc, inum);
 
     printf("getdir %016llx\n", inum);
     extent_protocol::attr a;
@@ -81,9 +84,9 @@ release:
 int yfs_client::unlink(inum parent, std::string name) {
     inum ino;
     std::string parent_buf;
-    Dlock d(lc, parent);
     if (isfile(parent)) return IOERR;
     if (lookup(parent, name, ino) != OK) return IOERR;
+    Dlock d(lc, parent);
 
     ec->remove(ino);
     ec->get(parent, parent_buf);
@@ -97,8 +100,9 @@ int yfs_client::unlink(inum parent, std::string name) {
 int yfs_client::mkdir(inum parent, std::string name, inum &ret_ino) {
     inum ino;
     std::string parent_buf;
-    Dlock d(lc, parent);
+    tprintf("lab5: mkdir %s\n", name.c_str());
     if (lookup(parent, name, ino) == OK) return EXIST;
+    Dlock d(lc, parent);
     ino = random_ino_(false);
     if (isfile(ino)) return IOERR;
     ec->put(ino, "");
@@ -107,7 +111,7 @@ int yfs_client::mkdir(inum parent, std::string name, inum &ret_ino) {
     parent_buf.append(name + ":" + std::to_string(ino) + ",");
     ec->put(parent, parent_buf);
     ret_ino = ino;
-
+    tprintf("lab5: mkdir %s over \n", name.c_str());
     return OK;
 }
 
@@ -125,6 +129,7 @@ int yfs_client::truncate(inum file, size_t size) {
 }
 
 int yfs_client::read(inum file, std::string &buf, size_t size, size_t off) {
+    Dlock d(lc, file);
     std::string file_buf;
     extent_protocol::attr attr;
     ec->getattr(file, attr);
@@ -172,10 +177,11 @@ yfs_client::inum yfs_client::random_ino_(bool is_file) {
 int yfs_client::create(inum parent, std::string name, inum &ret_ino) {
     inum ino;
     std::string parent_buf;
-    Dlock d(lc, parent);
+    tprintf("lab5: create, parent: %d, name: %s\n", int(parent), name.c_str());
     if (lookup(parent, name, ino) == OK) {
         return EXIST;
     }
+    Dlock d(lc, parent);
     ino = random_ino_(true);
     ec->put(ino, "");
 
@@ -183,12 +189,14 @@ int yfs_client::create(inum parent, std::string name, inum &ret_ino) {
     parent_buf.append(name + ":" + std::to_string(ino) + ",");
     ec->put(parent, parent_buf);
     ret_ino = ino;
+    tprintf("lab5: create, parent: %d, name: %s over\n", int(parent), name.c_str());
     return OK;
 }
 
 int yfs_client::lookup(inum parent, std::string name, inum &ret_ino) {
     std::string buf;
     std::string::size_type pos = -1, last_pos = -1;
+    Dlock d(lc, parent);
     auto r = ec->get(parent, buf);
     if (r != OK) return IOERR;
     while ((pos = buf.find(",", pos + 1)) != std::string::npos) {
@@ -209,6 +217,7 @@ int yfs_client::readdir(inum dir, std::map<std::string, inum> &files) {
     std::string buf;
     std::string::size_type pos = -1, last_pos = -1;
     // bool is_parent_name = true;
+    Dlock d(lc, dir);
     auto r = ec->get(dir, buf);
     if (r != OK) return IOERR;
     while ((pos = buf.find_first_of(",", pos + 1)) != std::string::npos) {

@@ -9,6 +9,7 @@
 #include "lock_client.h"
 #include "lock_protocol.h"
 #include "rpc.h"
+#include "extent_client.h"
 
 // Classes that inherit lock_release_user can override dorelease so that
 // that they will be called when lock_client releases a lock.
@@ -17,6 +18,18 @@ class lock_release_user {
    public:
     virtual void dorelease(lock_protocol::lockid_t) = 0;
     virtual ~lock_release_user(){};
+};
+
+class lock_release_extent: public lock_release_user {
+    private:
+        extent_client *ec;
+    public: 
+        lock_release_extent(extent_client *e):ec(e) {};
+        virtual ~lock_release_extent(){};
+        virtual void dorelease(lock_protocol::lockid_t lt) {
+            ec->flush(lt);
+        };
+
 };
 
 class lock_client_cache : public lock_client {
@@ -31,13 +44,10 @@ class lock_client_cache : public lock_client {
     std::string hostname;
     std::string id;
     std::map<lock_protocol::lockid_t, lock_attr> lock_cache;
-    std::map<lock_protocol::lockid_t, rlock_protocol::client_status> client_status;
     pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
     pthread_cond_t release_cond = PTHREAD_COND_INITIALIZER;
     pthread_cond_t retry_cond = PTHREAD_COND_INITIALIZER;
     pthread_cond_t normal_cond= PTHREAD_COND_INITIALIZER;
-    std::list<lock_protocol::lockid_t> wait_to_revoke;
-    std::list<lock_protocol::lockid_t> wait_to_retry;
    public:
     lock_client_cache(std::string xdst, class lock_release_user *l = 0);
     virtual ~lock_client_cache(){};

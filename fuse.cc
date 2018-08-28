@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include "lang/verify.h"
 #include "yfs_client.h"
+#include "tprintf.h"
 
 int myid;
 yfs_client *yfs;
@@ -211,6 +212,7 @@ yfs_client::status fuseserver_createhelper(fuse_ino_t parent, const char *name,
     e->generation = 0;
     // You fill this in for Lab 2
     yfs_client::inum ino;
+    tprintf("lab5: fuse_create, parent: %d, name: %s\n", int(parent), name);
     auto r = yfs->create(parent, std::string(name), ino);
     if (r == yfs_client::OK) {
         e->ino = ino;
@@ -267,6 +269,7 @@ void fuseserver_lookup(fuse_req_t req, fuse_ino_t parent, const char *name) {
     e.generation = 0;
     bool found = false;
 
+    tprintf("lab5: fuse_lookup, parent: %d, name: %s\n", int(parent), name);
     // You fill this in for Lab 2
     yfs_client::inum ino;
     auto r = yfs->lookup(parent, std::string(name), ino);

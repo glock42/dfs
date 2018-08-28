@@ -7,12 +7,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sstream>
+#include "tprintf.h"
 
 extent_server::extent_server() {}
 
 int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &) {
     // You fill this in for Lab 2.
     ScopedLock m(&m_);
+    tprintf("lab5: put %d, buf: %s \n", int(id), buf.c_str());
     auto iter = contents_.find(id); 
     
     if(iter == contents_.end()) {
@@ -42,6 +44,7 @@ int extent_server::put(extent_protocol::extentid_t id, std::string buf, int &) {
 int extent_server::get(extent_protocol::extentid_t id, std::string &buf) {
     // You fill this in for Lab 2.
     ScopedLock m(&m_);
+    tprintf("get %d \n", int(id));
     auto iter = contents_.find(id); 
     if(iter != contents_.end()) {
         buf = iter->second.buf;
@@ -60,6 +63,7 @@ int extent_server::getattr(extent_protocol::extentid_t id,
     // unmount) if getattr fails.
     
     ScopedLock m(&m_);
+    tprintf("getattr %d \n", int(id));
     auto iter = contents_.find(id); 
     if(iter != contents_.end()) {
         a.size = iter->second.attr.size;
@@ -75,6 +79,7 @@ int extent_server::getattr(extent_protocol::extentid_t id,
 int extent_server::remove(extent_protocol::extentid_t id, int &) {
     // You fill this in for Lab 2.
     ScopedLock m(&m_);
+    tprintf("remove %d \n", int(id));
     auto iter = contents_.find(id); 
     if(iter != contents_.end()) {
         contents_.erase(iter);

@@ -104,6 +104,9 @@ lock_protocol::status lock_client_cache::release(lock_protocol::lockid_t lid) {
             if (iter->second.revoke) {
                 iter->second.status = rlock_protocol::RELEASING;
                 iter->second.revoke = false;
+                // lab5
+                lu->dorelease(lid);
+
                 pthread_mutex_unlock(&mtx);
                 ret = cl->call(lock_protocol::release, lid, id, r);
                 pthread_mutex_lock(&mtx);
@@ -137,6 +140,9 @@ rlock_protocol::status lock_client_cache::revoke_handler(
     } else{ 
         if (iter->second.status == rlock_protocol::FREE) {
             iter->second.status = rlock_protocol::RELEASING;
+            //lab5
+            lu->dorelease(lid);
+
             pthread_mutex_unlock(&mtx);
             ret = cl->call(lock_protocol::release, lid, id, r);
             pthread_mutex_lock(&mtx);

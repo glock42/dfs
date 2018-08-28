@@ -23,7 +23,7 @@ class extent_server {
         extent_protocol::attr attr;
     };
     std::map<extent_protocol::extentid_t, ext_content> contents_;
-    pthread_mutex_t m_;
+    pthread_mutex_t m_ = PTHREAD_MUTEX_INITIALIZER;
 };
 
 #endif
