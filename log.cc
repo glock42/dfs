@@ -7,7 +7,7 @@
 // all durable state to run Paxos.  Since the values chosen correspond
 // to views, the log contains all views since the beginning of time.
 
-log::log(acceptor *_acc, std::string _me)
+Log::Log(acceptor *_acc, std::string _me)
   : pxs (_acc)
 {
   name = "paxos-" + _me + ".log";
@@ -15,7 +15,7 @@ log::log(acceptor *_acc, std::string _me)
 }
 
 void
-log::logread(void)
+Log::logread(void)
 {
   std::ifstream from;
   std::string type;
@@ -58,7 +58,7 @@ log::logread(void)
 }
 
 std::string 
-log::dump()
+Log::dump()
 {
   std::ifstream from;
   std::string res;
@@ -72,7 +72,7 @@ log::dump()
 }
 
 void
-log::restore(std::string s)
+Log::restore(std::string s)
 {
   std::ofstream f;
   printf("restore: %s\n", s.c_str());
@@ -83,7 +83,7 @@ log::restore(std::string s)
 
 // XXX should be an atomic operation
 void
-log::loginstance(unsigned instance, std::string v)
+Log::loginstance(unsigned instance, std::string v)
 {
   std::ofstream f;
   f.open(name.c_str(), std::ios::app);
@@ -99,7 +99,7 @@ log::loginstance(unsigned instance, std::string v)
 // an acceptor should call logprop(n_h) when it
 // receives a prepare to which it responds prepare_ok().
 void
-log::logprop(prop_t n_h)
+Log::logprop(prop_t n_h)
 {
   std::ofstream f;
   f.open(name.c_str(), std::ios::app);
@@ -115,7 +115,7 @@ log::logprop(prop_t n_h)
 // an acceptor should call logaccept(n_a, v_a) when it
 // receives an accept RPC to which it replies accept_ok().
 void
-log::logaccept(prop_t n, std::string v)
+Log::logaccept(prop_t n, std::string v)
 {
   std::ofstream f;
   f.open(name.c_str(), std::ios::app);

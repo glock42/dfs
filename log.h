@@ -7,12 +7,12 @@
 
 class acceptor;
 
-class log {
+class Log {
  private:
   std::string name;
   acceptor *pxs;
  public:
-  log (acceptor*, std::string _me);
+  Log (acceptor*, std::string _me);
   std::string dump();
   void restore(std::string s);
   void logread(void);

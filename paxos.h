@@ -16,7 +16,7 @@ class paxos_change {
 
 class acceptor {
  private:
-  log *l;
+  Log *l;
   rpcs *pxs;
   paxos_change *cfg;
   std::string me;
@@ -38,7 +38,7 @@ class acceptor {
   paxos_protocol::status decidereq(std::string src, 
           paxos_protocol::decidearg a, int &r);
 
-  friend class log;
+  friend class Log;
 
  public:
   acceptor(class paxos_change *cfg, bool _first, std::string _me, 
@@ -59,7 +59,7 @@ extern std::string print_members(const std::vector<std::string> &nodes);
 
 class proposer {
  private:
-  log *l;
+  Log *l;
   paxos_change *cfg;
   acceptor *acc;
   std::string me;
@@ -85,7 +85,7 @@ class proposer {
   void breakpoint2();
   bool majority(const std::vector<std::string> &l1, const std::vector<std::string> &l2);
 
-  friend class log;
+  friend class Log;
  public:
   proposer(class paxos_change *cfg, class acceptor *_acceptor, std::string _me);
   ~proposer() {};

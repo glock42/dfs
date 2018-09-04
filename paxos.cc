@@ -184,7 +184,7 @@ acceptor::acceptor(class paxos_change *_cfg, bool _first, std::string _me,
   n_a.m = me;
   v_a.clear();
 
-  l = new log (this, me);
+  l = new Log (this, me);
 
   if (instance_h == 0 && _first) {
     values[1] = _value;
