@@ -190,10 +190,10 @@ void proposer::decide(unsigned instance, std::vector<std::string> accepts,
     for (auto accept:accepts) {
         auto cl = handle(accept).safebind();
         paxos_protocol::decidearg a;
-        bool r;
+        int r;
         a.instance = instance;
         a.v = v;
-        cl->call(paxos_protocol::decidereq, a, r);
+        cl->call(paxos_protocol::decidereq, me, a, r);
     }
 }
 
@@ -228,6 +228,7 @@ paxos_protocol::status acceptor::preparereq(std::string src,
     // You fill this in for Lab 6
     // Remember to initialize *BOTH* r.accept and r.oldinstance appropriately.
     // Remember to *log* the proposal if the proposal is accepted.
+    tprintf("preparereq: src: %s, n: %d \n", src.c_str(), a.n.n)
     r.accept = false;
     r.oldinstance = false;
     if(a.instance <= instance_h) {
@@ -247,8 +248,9 @@ paxos_protocol::status acceptor::acceptreq(std::string src,
                                            bool &r) {
     // You fill this in for Lab 6
     // Remember to *log* the accept if the proposal is accepted.
+    tprintf("acceptreq: src: %s, n: %d, v: %s \n", src.c_str(), a.n.n, a.v.c_str())
     r = false;
-    if(a.n > n_h) {
+    if(a.n >= n_h) {
         n_a = a.n;
         v_a = a.v;
         r = true;
