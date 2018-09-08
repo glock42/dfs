@@ -7,6 +7,7 @@
 #include "paxos.h"
 #include "tprintf.h"
 
+
 // The config module maintains views. As a node joins or leaves a
 // view, the next view will be the same as previous view, except with
 // the new node added or removed. The first view contains only node
