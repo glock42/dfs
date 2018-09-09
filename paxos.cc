@@ -143,6 +143,11 @@ bool proposer::prepare(unsigned instance, std::vector<std::string> &accepts,
     for (auto node : nodes) {
         handle h(node);
         auto cl = h.safebind();
+
+        if(!cl) {
+            tprintf("prepare: safe bind %s node failed\n", node.c_str());
+            continue; 
+        }
         
         paxos_protocol::preparearg arg;
         paxos_protocol::prepareres res;
@@ -153,7 +158,7 @@ bool proposer::prepare(unsigned instance, std::vector<std::string> &accepts,
         VERIFY(pthread_mutex_lock(&pxs_mutex) == 0);
 
         if(!h.safebind() || r != paxos_protocol::OK) {
-            tprintf("prepare: bind %s node failed\n", node.c_str());
+            tprintf("prepare: call %s node failed\n", node.c_str());
             continue;
         } 
 
@@ -263,6 +268,7 @@ paxos_protocol::status acceptor::preparereq(std::string src,
         r.accept = true;
         r.n_a = n_a;
         r.v_a = v_a;
+        l->logprop(n_h);
     }
     return paxos_protocol::OK;
 }
@@ -281,6 +287,7 @@ paxos_protocol::status acceptor::acceptreq(std::string src,
         n_a = a.n;
         v_a = a.v;
         r = true;
+        l->logaccept(n_a, v_a);
     }
 
     return paxos_protocol::OK;
