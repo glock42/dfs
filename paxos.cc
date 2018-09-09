@@ -90,7 +90,7 @@ bool proposer::run(int instance, std::vector<std::string> cur_nodes,
         return false;
     }
     stable = false;
-    setn(); // choose n, unique and higher than any n seen so far
+    setn();  // choose n, unique and higher than any n seen so far
     accepts.clear();
     v.clear();
     if (prepare(instance, accepts, cur_nodes, v)) {
@@ -140,30 +140,41 @@ bool proposer::prepare(unsigned instance, std::vector<std::string> &accepts,
     // acc->commit(...), and return false.
     unsigned highest_n_a = 0;
 
-    for(auto node:nodes) {
-        sockaddr_in dstsock;
-        make_sockaddr(node.c_str(), &dstsock);
-        auto cl = handle(node).safebind();
-        if(!cl) {
-            tprintf("proposer: call bind failed\n");
-            return false;
-        }
-        paxos_protocol::preparearg a;
-        paxos_protocol::prepareres s;
-        a.instance = instance;
-        a.n = my_n;
-        cl->call(paxos_protocol::preparereq, me, a, s);
-    
-        if(s.oldinstance) return false;
+    for (auto node : nodes) {
+        handle h(node);
+        auto cl = h.safebind();
         
-        if(s.accept) {
-            if(s.n_a.n > highest_n_a) {
-                highest_n_a = s.n_a.n;
-                v = s.v_a;
+        paxos_protocol::preparearg arg;
+        paxos_protocol::prepareres res;
+        arg.instance = instance;
+        arg.n = my_n;
+        VERIFY(pthread_mutex_unlock(&pxs_mutex) == 0);
+        auto r = cl->call(paxos_protocol::preparereq, me, arg, res, rpcc::to(1000));
+        VERIFY(pthread_mutex_lock(&pxs_mutex) == 0);
+
+        if(!h.safebind() || r != paxos_protocol::OK) {
+            tprintf("prepare: bind %s node failed\n", node.c_str());
+            continue;
+        } 
+
+        tprintf(
+            "prepare: call req back, oldinstance: %d, accept: %d, n: %d, v_a: "
+            "%s"
+            "\n",
+            res.oldinstance, res.accept, res.n_a.n, res.v_a.c_str());
+
+        if (res.oldinstance) return false;
+
+        if (res.accept) {
+            if (res.n_a.n > highest_n_a) {
+                highest_n_a = res.n_a.n;
+                v = res.v_a;
             }
             accepts.push_back(node);
         }
+
     }
+    tprintf("prepare finish\n");
     return true;
 }
 
@@ -172,28 +183,39 @@ bool proposer::prepare(unsigned instance, std::vector<std::string> &accepts,
 void proposer::accept(unsigned instance, std::vector<std::string> &accepts,
                       std::vector<std::string> nodes, std::string v) {
     // You fill this in for Lab 6
-    for(auto node:nodes) {
-        auto cl = handle(node).safebind();
+    for (auto node : nodes) {
+        handle h(node);
+        auto cl = h.safebind();
         paxos_protocol::acceptarg a;
         bool r;
         a.instance = instance;
         a.n = my_n;
         a.v = v;
-        cl->call(paxos_protocol::acceptreq, me, a, r);
-        if(r) accepts.push_back(node);
+        VERIFY(pthread_mutex_unlock(&pxs_mutex) == 0);
+        auto ret = cl->call(paxos_protocol::acceptreq, me, a, r, rpcc::to(1000));
+        VERIFY(pthread_mutex_lock(&pxs_mutex) == 0);
+
+        if(!h.safebind() || ret != paxos_protocol::OK) {
+            tprintf("accept: bind %s node failed\n", node.c_str());
+            continue;
+        }
+
+        if (r) accepts.push_back(node);
     }
 }
 
 void proposer::decide(unsigned instance, std::vector<std::string> accepts,
                       std::string v) {
     // You fill this in for Lab 6
-    for (auto accept:accepts) {
+    for (auto accept : accepts) {
         auto cl = handle(accept).safebind();
         paxos_protocol::decidearg a;
         int r;
         a.instance = instance;
         a.v = v;
-        cl->call(paxos_protocol::decidereq, me, a, r);
+        VERIFY(pthread_mutex_unlock(&pxs_mutex) == 0);
+        cl->call(paxos_protocol::decidereq, me, a, r, rpcc::to(1000));
+        VERIFY(pthread_mutex_lock(&pxs_mutex) == 0);
     }
 }
 
@@ -228,17 +250,20 @@ paxos_protocol::status acceptor::preparereq(std::string src,
     // You fill this in for Lab 6
     // Remember to initialize *BOTH* r.accept and r.oldinstance appropriately.
     // Remember to *log* the proposal if the proposal is accepted.
-    tprintf("preparereq: src: %s, n: %d \n", src.c_str(), a.n.n)
+    ScopedLock ml(&pxs_mutex);
+    tprintf("preparereq: src: %s, n: %d \n", src.c_str(), a.n.n);
     r.accept = false;
     r.oldinstance = false;
-    if(a.instance <= instance_h) {
+    if (a.instance <= instance_h) {
         r.oldinstance = true;
-    } else if(a.n > n_h) {
+    } else if (a.n > n_h) {
+        tprintf("preparereq: accept, arg.n: %d, n_h: %d, n_a: %d, v_a: %s \n",
+                a.n.n, n_h.n, n_a.n, v_a.c_str());
         n_h = a.n;
         r.accept = true;
         r.n_a = n_a;
         r.v_a = v_a;
-    }     
+    }
     return paxos_protocol::OK;
 }
 
@@ -248,9 +273,11 @@ paxos_protocol::status acceptor::acceptreq(std::string src,
                                            bool &r) {
     // You fill this in for Lab 6
     // Remember to *log* the accept if the proposal is accepted.
-    tprintf("acceptreq: src: %s, n: %d, v: %s \n", src.c_str(), a.n.n, a.v.c_str())
+    ScopedLock ml(&pxs_mutex);
+    tprintf("acceptreq: src: %s, n: %d, v: %s \n", src.c_str(), a.n.n,
+            a.v.c_str());
     r = false;
-    if(a.n >= n_h) {
+    if (a.n >= n_h) {
         n_a = a.n;
         v_a = a.v;
         r = true;
