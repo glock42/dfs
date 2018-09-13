@@ -2,91 +2,220 @@
 // see lock_client.cache.h for protocol details.
 
 #include "lock_client_cache_rsm.h"
-#include "rpc.h"
-#include <sstream>
-#include <iostream>
 #include <stdio.h>
+#include <iostream>
+#include <sstream>
+#include "rpc.h"
 #include "tprintf.h"
 
 #include "rsm_client.h"
 
-static void *
-releasethread(void *x)
-{
-  lock_client_cache_rsm *cc = (lock_client_cache_rsm *) x;
-  cc->releaser();
-  return 0;
+static void *releasethread(void *x) {
+    lock_client_cache_rsm *cc = (lock_client_cache_rsm *)x;
+    cc->releaser();
+    return 0;
 }
 
 int lock_client_cache_rsm::last_port = 0;
 
-lock_client_cache_rsm::lock_client_cache_rsm(std::string xdst, 
-				     class lock_release_user *_lu)
-  : lock_client(xdst), lu(_lu)
-{
-  srand(time(NULL)^last_port);
-  rlock_port = ((rand()%32000) | (0x1 << 10));
-  const char *hname;
-  // VERIFY(gethostname(hname, 100) == 0);
-  hname = "127.0.0.1";
-  std::ostringstream host;
-  host << hname << ":" << rlock_port;
-  id = host.str();
-  last_port = rlock_port;
-  rpcs *rlsrpc = new rpcs(rlock_port);
-  rlsrpc->reg(rlock_protocol::revoke, this, &lock_client_cache_rsm::revoke_handler);
-  rlsrpc->reg(rlock_protocol::retry, this, &lock_client_cache_rsm::retry_handler);
-  xid = 0;
-  // You fill this in Step Two, Lab 7
-  // - Create rsmc, and use the object to do RPC 
-  //   calls instead of the rpcc object of lock_client
-  pthread_t th;
-  int r = pthread_create(&th, NULL, &releasethread, (void *) this);
-  VERIFY (r == 0);
+lock_client_cache_rsm::lock_client_cache_rsm(std::string xdst,
+                                             class lock_release_user *_lu)
+    : lock_client(xdst), lu(_lu) {
+    srand(time(NULL) ^ last_port);
+    rlock_port = ((rand() % 32000) | (0x1 << 10));
+    const char *hname;
+    // VERIFY(gethostname(hname, 100) == 0);
+    hname = "127.0.0.1";
+    std::ostringstream host;
+    host << hname << ":" << rlock_port;
+    id = host.str();
+    last_port = rlock_port;
+    rpcs *rlsrpc = new rpcs(rlock_port);
+    rlsrpc->reg(rlock_protocol::revoke, this,
+                &lock_client_cache_rsm::revoke_handler);
+    rlsrpc->reg(rlock_protocol::retry, this,
+                &lock_client_cache_rsm::retry_handler);
+    xid = 0;
+    // You fill this in Step Two, Lab 7
+    // - Create rsmc, and use the object to do RPC
+    //   calls instead of the rpcc object of lock_client
+    
+    rsmc = new rsm_client(xdst);
+
+    pthread_t th;
+    int r = pthread_create(&th, NULL, &releasethread, (void *)this);
+    VERIFY(r == 0);
 }
 
+void lock_client_cache_rsm::releaser() {
+    // This method should be a continuous loop, waiting to be notified of
+    // freed locks that have been revoked by the server, so that it can
+    // send a release RPC.
+    int r;
+    while(true) {
+        pthread_cond_wait(&do_release_cond, &mtx);
+    
+        if(wait_release.size() > 0) {
+            struct release_entry entry = wait_release.back();
+            wait_release.pop_back();
+            auto iter = lock_cache.find(entry.lid);
 
-void
-lock_client_cache_rsm::releaser()
-{
+            if(lu) 
+                lu->dorelease(entry.lid);
+                        
+            auto ret = rsmc->call(lock_protocol::release, entry.lid, id, r);
+            iter->second.status = rlock_protocol::NONE;
+            pthread_cond_broadcast(&release_cond);
+        }
+    }
+}
 
-  // This method should be a continuous loop, waiting to be notified of
-  // freed locks that have been revoked by the server, so that it can
-  // send a release RPC.
+lock_protocol::status lock_client_cache_rsm::acquire(
+    lock_protocol::lockid_t lid) {
+    int ret = lock_protocol::OK;
+    int r = 0;
+    bool loop = true;
+    pthread_mutex_lock(&mtx);
+    tprintf("%s acquire lock %d\n", id.c_str(), int(lid));
+    auto iter = lock_cache.find(lid);
+    if (iter == lock_cache.end()) {
+        lock_cache[lid].status = rlock_protocol::NONE;
+    }
+    iter = lock_cache.find(lid);
+    while (loop) {
+        switch (iter->second.status) {
+            case rlock_protocol::NONE:
+                // tprintf("%s call server acqure lock %d\n", id.c_str(),
+                //        int(lid));
+                iter->second.retry = false;
+                iter->second.status = rlock_protocol::ACQUIRING;
+                pthread_mutex_unlock(&mtx);
+                ret = rsmc->call(lock_protocol::acquire, lid, id, r);
+                pthread_mutex_lock(&mtx);
+                if (ret == lock_protocol::OK) {
+                    iter->second.status = rlock_protocol::FREE;
+                } else if (ret == lock_protocol::RETRY) {
+                    if (!iter->second.retry) {
+                        pthread_cond_wait(&retry_cond, &mtx);
+                    }
+                }
+                break;
+            case rlock_protocol::LOCKED:
+                pthread_cond_wait(&normal_cond, &mtx);
+                break;
+            case rlock_protocol::RELEASING:
+                pthread_cond_wait(&release_cond, &mtx);
+                break;
+            case rlock_protocol::ACQUIRING:
+                if (!iter->second.retry) {
+                    pthread_cond_wait(&normal_cond, &mtx);
+                } else {
+                    iter->second.retry = false;
+                    pthread_mutex_unlock(&mtx);
+                    ret = rsmc->call(lock_protocol::acquire, lid, id, r);
+                    pthread_mutex_lock(&mtx);
+                    if (ret == lock_protocol::OK) {
+                        iter->second.status = rlock_protocol::FREE;
+                    } else if (ret == lock_protocol::RETRY) {
+                        if (!iter->second.retry) {
+                            pthread_cond_wait(&retry_cond, &mtx);
+                        }
+                    }
+                }
+                break;
+            case rlock_protocol::FREE:
+                iter->second.status = rlock_protocol::LOCKED;
+                loop = false;
+                tprintf("%s acqure lock %d done\n", id.c_str(), int(lid));
+                pthread_mutex_unlock(&mtx);
+                break;
+        }
+    }
+    return ret;
+}
+
+lock_protocol::status lock_client_cache_rsm::release(
+    lock_protocol::lockid_t lid) {
+    pthread_mutex_lock(&mtx);
+    int ret = lock_protocol::OK;
+    int r = 0;
+    tprintf("%s release lock %d \n", id.c_str(), int(lid));
+    auto iter = lock_cache.find(lid);
+    if (iter == lock_cache.end()) {
+        ret = lock_protocol::RPCERR;
+        pthread_mutex_unlock(&mtx);
+    } else {
+        if (iter->second.status != rlock_protocol::LOCKED) {
+            ret = lock_protocol::RPCERR;
+            pthread_mutex_unlock(&mtx);
+        } else {
+
+            if (iter->second.revoke) {
+                iter->second.status = rlock_protocol::RELEASING;
+                iter->second.revoke = false;
+
+                //tprintf("%s set lock %d to NONE\n", id.c_str(), int(lid));
+                pthread_cond_signal(&do_release_cond);
+                pthread_mutex_unlock(&mtx);
+            } else {
+                //tprintf("%s release lock %d, but revoke flag not set\n",
+                //        id.c_str(), int(lid));
+                iter->second.status = rlock_protocol::FREE;
+                pthread_cond_broadcast(&normal_cond);
+                pthread_mutex_unlock(&mtx);
+            }
+        }
+    }
+    tprintf("%s release lock %d done\n", id.c_str(), int(lid));
+    return ret;
 
 }
 
+rlock_protocol::status lock_client_cache_rsm::revoke_handler(
+    lock_protocol::lockid_t lid, lock_protocol::xid_t xid, int &) {
+    pthread_mutex_lock(&mtx);
+    int ret = rlock_protocol::OK;
+    int r = 0;
+    //tprintf("%s revoke lock %d \n", id.c_str(), int(lid));
+    auto iter = lock_cache.find(lid);
+    if (iter == lock_cache.end()) {
+        ret = lock_protocol::RPCERR;
+        pthread_mutex_unlock(&mtx);
+    } else{
+        if (iter->second.status == rlock_protocol::FREE) {
+            iter->second.status = rlock_protocol::RELEASING;
 
-lock_protocol::status
-lock_client_cache_rsm::acquire(lock_protocol::lockid_t lid)
-{
-  int ret = lock_protocol::OK;
+            wait_release.push_back(release_entry(lid, xid));
 
-  return ret;
+            //tprintf("%s set lock %d to NONE\n", id.c_str(), int(lid));
+            pthread_cond_broadcast(&do_release_cond);
+            pthread_mutex_unlock(&mtx);
+        } else {
+            iter->second.revoke = true;
+            wait_release.push_back(release_entry(lid, xid));
+            //tprintf("%s set %d lock revoke flag true \n", id.c_str(), int(lid));
+            pthread_mutex_unlock(&mtx);
+        }
+    }
+    //tprintf("%s revoke lock %d done\n", id.c_str(), int(lid));
+    return ret;
 }
 
-lock_protocol::status
-lock_client_cache_rsm::release(lock_protocol::lockid_t lid)
-{
-  return lock_protocol::OK;
+rlock_protocol::status lock_client_cache_rsm::retry_handler(
+    lock_protocol::lockid_t lid, lock_protocol::xid_t xid, int &) {
+    pthread_mutex_lock(&mtx);
+    //tprintf("%s retry lock %d \n", id.c_str(), int(lid));
+    int ret = rlock_protocol::OK;
+    auto iter = lock_cache.find(lid);
+    if (iter == lock_cache.end()) {
+        ret = rlock_protocol::RPCERR;
+        pthread_mutex_unlock(&mtx);
+    } else {
+        iter->second.retry = true;
+        pthread_cond_signal(&retry_cond);
+        pthread_mutex_unlock(&mtx);
+    }
+    //tprintf("%s retry lock %d done\n", id.c_str(), int(lid));
+    return ret;
 
 }
-
-
-rlock_protocol::status
-lock_client_cache_rsm::revoke_handler(lock_protocol::lockid_t lid, 
-			          lock_protocol::xid_t xid, int &)
-{
-  int ret = rlock_protocol::OK;
-  return ret;
-}
-
-rlock_protocol::status
-lock_client_cache_rsm::retry_handler(lock_protocol::lockid_t lid, 
-			         lock_protocol::xid_t xid, int &)
-{
-  int ret = rlock_protocol::OK;
-  return ret;
-}
-
-
