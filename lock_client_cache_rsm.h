@@ -30,12 +30,14 @@ class lock_client_cache_rsm : public lock_client {
     struct lock_attr {
         bool revoke = false;
         bool retry = false;
+        lock_protocol::xid_t xid = 0;
         rlock_protocol::client_status status;
     };
 
     struct release_entry {
         lock_protocol::lockid_t lid;
         lock_protocol::xid_t xid;
+        release_entry() = default;
         release_entry(lock_protocol::lockid_t _lid, lock_protocol::xid_t _xid)
             : lid(_lid), xid(_xid) {}
     };
@@ -47,11 +49,11 @@ class lock_client_cache_rsm : public lock_client {
     std::string id;
     lock_protocol::xid_t xid;
 
-    std::list<struct release_entry> wait_release;
+    fifo<struct release_entry> wait_release;
+
     std::map<lock_protocol::lockid_t, lock_attr> lock_cache;
     pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
     pthread_cond_t release_cond = PTHREAD_COND_INITIALIZER;
-    pthread_cond_t do_release_cond = PTHREAD_COND_INITIALIZER;
     pthread_cond_t retry_cond = PTHREAD_COND_INITIALIZER;
     pthread_cond_t normal_cond = PTHREAD_COND_INITIALIZER;
 
