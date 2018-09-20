@@ -40,7 +40,7 @@ lock_client_cache_rsm::lock_client_cache_rsm(std::string xdst,
     // - Create rsmc, and use the object to do RPC
     //   calls instead of the rpcc object of lock_client
 
-    // rsmc = new rsm_client(xdst);
+    rsmc = new rsm_client(xdst);
 
     pthread_t th;
     int r = pthread_create(&th, NULL, &releasethread, (void *)this);
@@ -61,7 +61,7 @@ void lock_client_cache_rsm::releaser() {
 
         if (lu) lu->dorelease(e.lid);
 
-        auto ret = cl->call(lock_protocol::release, e.lid, id, e.xid, r);
+        auto ret = rsmc->call(lock_protocol::release, e.lid, id, e.xid, r);
 
         {
             ScopedLock m(&mtx);
@@ -94,7 +94,7 @@ lock_protocol::status lock_client_cache_rsm::acquire(
                 tprintf("%s call server acqure lock %d, xid: %d\n", id.c_str(),
                         int(lid), int(iter->second.xid));
                 pthread_mutex_unlock(&mtx);
-                ret = cl->call(lock_protocol::acquire, lid, id,
+                ret = rsmc->call(lock_protocol::acquire, lid, id,
                                iter->second.xid, r);
                 pthread_mutex_lock(&mtx);
                 if (ret == lock_protocol::OK) {
@@ -123,7 +123,7 @@ lock_protocol::status lock_client_cache_rsm::acquire(
                             int(lid), int(iter->second.xid));
 
                     pthread_mutex_unlock(&mtx);
-                    ret = cl->call(lock_protocol::acquire, lid, id,
+                    ret = rsmc->call(lock_protocol::acquire, lid, id,
                                    iter->second.xid, r);
                     pthread_mutex_lock(&mtx);
                     if (ret == lock_protocol::OK) {

@@ -85,8 +85,8 @@
 #include "handle.h"
 #include "lang/verify.h"
 #include "rsm.h"
-#include "tprintf.h"
 #include "rsm_client.h"
+#include "tprintf.h"
 
 static void *recoverythread(void *x) {
     rsm *r = (rsm *)x;
@@ -142,11 +142,9 @@ rsm::rsm(std::string _first, std::string _me)
     }
 }
 
-void
-rsm::reg1(int proc, handler *h)
-{
-  ScopedLock ml(&rsm_mutex);
-  procs[proc] = h;
+void rsm::reg1(int proc, handler *h) {
+    ScopedLock ml(&rsm_mutex);
+    procs[proc] = h;
 }
 
 // The recovery thread runs this function
@@ -226,34 +224,32 @@ bool rsm::sync_with_primary() {
  * Call to transfer state from m to the local node.
  * Assumes that rsm_mutex is already held.
  */
-bool
-rsm::statetransfer(std::string m)
-{
-  // Code will be provided in Lab 7
-  rsm_protocol::transferres r;
-  handle h(m);
-  int ret;
-  tprintf("rsm::statetransfer: contact %s w. my last_myvs(%d,%d)\n", 
-	 m.c_str(), last_myvs.vid, last_myvs.seqno);
-  VERIFY(pthread_mutex_unlock(&rsm_mutex)==0);
-  rpcc *cl = h.safebind();
-  if (cl) {
-    ret = cl->call(rsm_protocol::transferreq, cfg->myaddr(), 
-                             last_myvs, vid_insync, r, rpcc::to(1000));
-  }
-  VERIFY(pthread_mutex_lock(&rsm_mutex)==0);
-  if (cl == 0 || ret != rsm_protocol::OK) {
-    tprintf("rsm::statetransfer: couldn't reach %s %lx %d\n", m.c_str(), 
-	   (long unsigned) cl, ret);
-    return false;
-  }
-  if (stf && last_myvs != r.last) {
-    stf->unmarshal_state(r.state);
-  }
-  last_myvs = r.last;
-  tprintf("rsm::statetransfer transfer from %s success, vs(%d,%d)\n", 
-	 m.c_str(), last_myvs.vid, last_myvs.seqno);
-  return true;
+bool rsm::statetransfer(std::string m) {
+    // Code will be provided in Lab 7
+    rsm_protocol::transferres r;
+    handle h(m);
+    int ret;
+    tprintf("rsm::statetransfer: contact %s w. my last_myvs(%d,%d)\n",
+            m.c_str(), last_myvs.vid, last_myvs.seqno);
+    VERIFY(pthread_mutex_unlock(&rsm_mutex) == 0);
+    rpcc *cl = h.safebind();
+    if (cl) {
+        ret = cl->call(rsm_protocol::transferreq, cfg->myaddr(), last_myvs,
+                       vid_insync, r, rpcc::to(1000));
+    }
+    VERIFY(pthread_mutex_lock(&rsm_mutex) == 0);
+    if (cl == 0 || ret != rsm_protocol::OK) {
+        tprintf("rsm::statetransfer: couldn't reach %s %lx %d\n", m.c_str(),
+                (long unsigned)cl, ret);
+        return false;
+    }
+    if (stf && last_myvs != r.last) {
+        stf->unmarshal_state(r.state);
+    }
+    last_myvs = r.last;
+    tprintf("rsm::statetransfer transfer from %s success, vs(%d,%d)\n",
+            m.c_str(), last_myvs.vid, last_myvs.seqno);
+    return true;
 }
 
 bool rsm::statetransferdone(std::string m) {
@@ -306,21 +302,19 @@ void rsm::commit_change_wo(unsigned vid) {
     if (cfg->ismember(cfg->myaddr(), vid_commit)) breakpoint2();
 }
 
-
-void
-rsm::execute(int procno, std::string req, std::string &r)
-{
-  tprintf("execute\n");
-  handler *h = procs[procno];
-  VERIFY(h);
-  unmarshall args(req);
-  marshall rep;
-  std::string reps;
-  rsm_protocol::status ret = h->fn(args, rep);
-  marshall rep1;
-  rep1 << ret;
-  rep1 << rep.str();
-  r = rep1.str();
+void rsm::execute(int procno, std::string req, std::string &r) {
+    tprintf("execute\n");
+    handler *h = procs[procno];
+    VERIFY(h);
+    unmarshall args(req);
+    marshall rep;
+    std::string reps;
+    rsm_protocol::status ret = h->fn(args, rep);
+    marshall rep1;
+    rep1 << ret;
+    rep1 << rep.str();
+    r = rep1.str();
+    tprintf("execute finish, res: %s\n", r.c_str());
 }
 
 //
@@ -333,6 +327,56 @@ rsm_client_protocol::status rsm::client_invoke(int procno, std::string req,
                                                std::string &r) {
     int ret = rsm_client_protocol::OK;
     // You fill this in for Lab 7
+    ScopedLock m(&invoke_mutex);
+    VERIFY(pthread_mutex_lock(&rsm_mutex) == 0);
+    tprintf("client_invoke: procno: %d, req: %s\n", procno, req.c_str());
+
+    if (inviewchange) {
+        tprintf("client_invoke: inviewchange\n");
+        ret = rsm_client_protocol::BUSY;
+    } else if (primary != cfg->myaddr()) {
+        tprintf("client_invoke: not primary\n");
+        ret = rsm_client_protocol::NOTPRIMARY;
+    } else {
+        auto vs = myvs;
+        int res = 0;
+        last_myvs = vs;
+        myvs.seqno += 1;
+        bool failed = false;
+
+        auto cur_view = cfg->get_view(myvs.vid);
+
+        tprintf("client_invoke: start call slave %s, primary %s\n",
+                print_members(cur_view).c_str(), primary.c_str());
+
+        for (auto host : cur_view) {
+            if (host == primary) continue;
+
+            handle h(host);
+            auto cl = h.safebind();
+            VERIFY(pthread_mutex_unlock(&rsm_mutex) == 0);
+            ret = cl->call(rsm_protocol::invoke, procno, vs, req, res,
+                           rpcc::to(1000));
+
+            VERIFY(pthread_mutex_lock(&rsm_mutex) == 0);
+
+            tprintf("client_invoke: call server %s finish, ret: %d\n", host.c_str(), ret);
+
+            if (ret != rsm_protocol::OK) {
+                failed = true;
+                ret = rsm_client_protocol::BUSY;
+                break;
+            }
+        }
+
+        if (!failed) {
+            execute(procno, req, r);
+            tprintf("client_invoke: call primary finish, ret: %s\n", r.c_str());
+
+        }
+    }
+    tprintf("client_invoke: finish\n");
+    VERIFY(pthread_mutex_unlock(&rsm_mutex) == 0);
     return ret;
 }
 
@@ -346,7 +390,22 @@ rsm_client_protocol::status rsm::client_invoke(int procno, std::string req,
 rsm_protocol::status rsm::invoke(int proc, viewstamp vs, std::string req,
                                  int &dummy) {
     rsm_protocol::status ret = rsm_protocol::OK;
+    ScopedLock m(&rsm_mutex);
+    tprintf("slave invoke: proc: %d, vs(%d, %d), req: %s\n", proc, vs.vid,
+            vs.seqno, req.c_str());
     // You fill this in for Lab 7
+    std::string res;
+
+    if (vs != myvs) return rsm_protocol::ERR;
+
+    if (inviewchange) return rsm_protocol::ERR;
+
+    if(primary == cfg->myaddr()) return rsm_protocol::ERR;
+
+    last_myvs = myvs;
+    myvs.seqno += 1;
+    execute(proc, req, res);
+
     return ret;
 }
 
@@ -354,22 +413,20 @@ rsm_protocol::status rsm::invoke(int proc, viewstamp vs, std::string req,
  * RPC handler: Send back the local node's state to the caller
  */
 
-rsm_protocol::status
-rsm::transferreq(std::string src, viewstamp last, unsigned vid, 
-rsm_protocol::transferres &r)
-{
-  ScopedLock ml(&rsm_mutex);
-  int ret = rsm_protocol::OK;
-  // Code will be provided in Lab 7
-  tprintf("transferreq from %s (%d,%d) vs (%d,%d)\n", src.c_str(), 
-	 last.vid, last.seqno, last_myvs.vid, last_myvs.seqno);
-  if (!insync || vid != vid_insync) {
-     return rsm_protocol::BUSY;
-  }
-  if (stf && last != last_myvs) 
-    r.state = stf->marshal_state();
-  r.last = last_myvs;
-  return ret;
+rsm_protocol::status rsm::transferreq(std::string src, viewstamp last,
+                                      unsigned vid,
+                                      rsm_protocol::transferres &r) {
+    ScopedLock ml(&rsm_mutex);
+    int ret = rsm_protocol::OK;
+    // Code will be provided in Lab 7
+    tprintf("transferreq from %s (%d,%d) vs (%d,%d)\n", src.c_str(), last.vid,
+            last.seqno, last_myvs.vid, last_myvs.seqno);
+    if (!insync || vid != vid_insync) {
+        return rsm_protocol::BUSY;
+    }
+    if (stf && last != last_myvs) r.state = stf->marshal_state();
+    r.last = last_myvs;
+    return ret;
 }
 
 /**

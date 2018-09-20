@@ -32,8 +32,8 @@ rsm_protocol::status rsm_client::invoke(int proc, std::string req,
     int ret;
     ScopedLock ml(&rsm_client_mutex);
     while (1) {
-        printf("rsm_client::invoke proc %x primary %s\n", proc,
-               primary.c_str());
+        printf("rsm_client::invoke proc %x primary %s, req %s\n", proc,
+               primary.c_str(), req.c_str());
         handle h(primary);
 
         VERIFY(pthread_mutex_unlock(&rsm_client_mutex) == 0);

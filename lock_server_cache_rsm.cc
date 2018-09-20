@@ -69,6 +69,7 @@ int lock_server_cache_rsm::acquire(lock_protocol::lockid_t lid, std::string id,
                                    lock_protocol::xid_t xid, int &) {
     ScopedLock m(&mtx);
     tprintf("%s acquire lock %d, xid: %d \n", id.c_str(), int(lid), int(xid));
+
     int ret = lock_protocol::OK;
     int r = 0;
     auto iter = lock_map.find(lid);
@@ -159,6 +160,7 @@ int lock_server_cache_rsm::release(lock_protocol::lockid_t lid, std::string id,
     ScopedLock m(&mtx);
     tprintf("%s release lock %d, xid: %d \n", id.c_str(), int(lid), int(xid));
     int ret = lock_protocol::OK;
+
     auto iter = lock_map.find(lid);
     if (iter == lock_map.end()) {
         ret = lock_protocol::NOENT;
