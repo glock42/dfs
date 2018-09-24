@@ -19,6 +19,10 @@ class lock_server_cache_rsm : public rsm_state_transfer {
     struct lock_content {
         std::string owned_client;
         std::list<std::string> wait_clients;
+        lock_content() = default;
+        lock_content(std::string _owned_client,
+                     std::list<std::string> _wait_clients)
+            : owned_client(_owned_client), wait_clients(_wait_clients) {}
     };
 
     struct revoke_entry {
@@ -42,9 +46,15 @@ class lock_server_cache_rsm : public rsm_state_transfer {
     };
 
     std::map<int, lock_content> lock_map;
-    std::map<std::string, std::map<lock_protocol::lockid_t, lock_protocol::xid_t>> highest_xid;
-    std::map<std::string, std::map<lock_protocol::lockid_t, lock_protocol::xid_t>> acquire_cache;
-    std::map<std::string, std::map<lock_protocol::lockid_t, lock_protocol::xid_t>> release_cache;
+    std::map<std::string,
+             std::map<lock_protocol::lockid_t, lock_protocol::xid_t>>
+        highest_xid;
+    std::map<std::string,
+             std::map<lock_protocol::lockid_t, lock_protocol::xid_t>>
+        acquire_cache;
+    std::map<std::string,
+             std::map<lock_protocol::lockid_t, lock_protocol::xid_t>>
+        release_cache;
     fifo<revoke_entry> wait_to_revoke;
     fifo<retry_entry> wait_to_retry;
 

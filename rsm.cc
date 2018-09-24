@@ -81,6 +81,7 @@
 #include <unistd.h>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 
 #include "handle.h"
 #include "lang/verify.h"
@@ -201,13 +202,28 @@ bool rsm::sync_with_backups() {
         // BUSY.
     }
     pthread_mutex_lock(&rsm_mutex);
+    tprintf("lab7 sync_with_backups start\n");
     // Start accepting synchronization request (statetransferreq) now!
     insync = true;
     // You fill this in for Lab 7
     // Wait until
     //   - all backups in view vid_insync are synchronized
     //   - or there is a committed viewchange
+    
+    auto cur_view = cfg->get_view(vid_insync);
+    backups.clear();
+    for(auto id : cur_view) {
+        if(id != primary) {
+            backups.push_back(id);
+        }
+    }
+    
+    while(backups.size()!=0 && vid_insync == vid_commit) {
+        pthread_cond_wait(&recovery_cond, &rsm_mutex);   
+    }
+
     insync = false;
+    tprintf("lab7 sync_with_backups done\n");
     return true;
 }
 
@@ -217,7 +233,19 @@ bool rsm::sync_with_primary() {
     // You fill this in for Lab 7
     // Keep synchronizing with primary until the synchronization succeeds,
     // or there is a commited viewchange
-    return true;
+    
+    tprintf("lab7 sync_with_primary start\n");
+    bool sync_done = false;
+    while(!sync_done && vid_insync == vid_commit) {
+        sync_done = statetransfer(m);
+    }
+
+    bool inform_done = false;
+    if(sync_done && vid_insync == vid_commit) {
+        inform_done = statetransferdone(m);
+    }
+    tprintf("lab7 sync_with_primary done\n");
+    return inform_done && sync_done && vid_insync == vid_commit;
 }
 
 /**
@@ -255,7 +283,18 @@ bool rsm::statetransfer(std::string m) {
 bool rsm::statetransferdone(std::string m) {
     // You fill this in for Lab 7
     // - Inform primary that this slave has synchronized for vid_insync
-    return true;
+    tprintf("lab7 statetransferdone: %s start\n", m.c_str());
+    pthread_mutex_unlock(&rsm_mutex);
+    bool ret = false;
+    int r;
+    handle h(m);
+    rpcc *cl = h.safebind();
+    if(cl) {
+        ret = cl->call(rsm_protocol::transferdonereq, cfg->myaddr(), vid_insync, r);
+    } 
+    pthread_mutex_lock(&rsm_mutex);
+    tprintf("lab7 statetransferdone: %s finish\n", m.c_str());
+    return ret;
 }
 
 bool rsm::join(std::string m) {
@@ -437,11 +476,22 @@ rsm_protocol::status rsm::transferreq(std::string src, viewstamp last,
 rsm_protocol::status rsm::transferdonereq(std::string m, unsigned vid, int &) {
     int ret = rsm_protocol::OK;
     ScopedLock ml(&rsm_mutex);
+    tprintf("lab7 transferdonereq: %s, vid %d start\n", m.c_str(), int(vid));
     // You fill this in for Lab 7
     // - Return BUSY if I am not insync, or if the slave is not synchronizing
     //   for the same view with me
     // - Remove the slave from the list of unsynchronized backups
     // - Wake up recovery thread if all backups are synchronized
+    if(!insync || vid != vid_insync) return rsm_protocol::BUSY;
+
+    auto iter = std::find(backups.begin(), backups.end(), m);
+    if(iter != backups.end()) {
+        backups.erase(iter);
+    }
+    if(backups.size() == 0) {
+        pthread_cond_broadcast(&recovery_cond);
+    }
+    tprintf("lab7 transferdonereq: %s, vid %d done\n", m.c_str(), int(vid));
     return ret;
 }
 

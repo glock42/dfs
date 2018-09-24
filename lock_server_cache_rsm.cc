@@ -27,6 +27,8 @@ lock_server_cache_rsm::lock_server_cache_rsm(class rsm *_rsm) : rsm(_rsm) {
     VERIFY(r == 0);
     r = pthread_create(&th, NULL, &retrythread, (void *)this);
     VERIFY(r == 0);
+
+    rsm->set_state_transfer(this);
 }
 
 void lock_server_cache_rsm::revoker() {
@@ -126,8 +128,9 @@ int lock_server_cache_rsm::acquire(lock_protocol::lockid_t lid, std::string id,
                         "id:%s, acqure: revoke entry enq, lid: %d, xid: %d\n",
                         id.c_str(), int(lid), int(xid));
 
-                    wait_to_revoke.enq(
-                        revoke_entry(lid, highest_xid[iter->second.owned_client][lid], iter->second.owned_client));
+                    wait_to_revoke.enq(revoke_entry(
+                        lid, highest_xid[iter->second.owned_client][lid],
+                        iter->second.owned_client));
                     ret = lock_protocol::RETRY;
 
                     // tprintf("%s revoke lock %d done\n", id.c_str(),
@@ -212,10 +215,135 @@ int lock_server_cache_rsm::release(lock_protocol::lockid_t lid, std::string id,
 std::string lock_server_cache_rsm::marshal_state() {
     std::ostringstream ost;
     std::string r;
-    return r;
+    ScopedLock m(&mtx);
+    marshall rep;
+    rep << int(lock_map.size());
+    for (auto iter_lock = lock_map.begin(); iter_lock != lock_map.end();
+         iter_lock++) {
+        int lid = iter_lock->first;
+        std::string client = iter_lock->second.owned_client;
+        std::vector<std::string> wait_clients;
+        for (auto wc : iter_lock->second.wait_clients) {
+            wait_clients.push_back(wc);
+        }
+        rep << lid;
+        rep << client;
+        rep << wait_clients;
+    }
+
+    rep << int(highest_xid.size());
+    for (auto xid_iter = highest_xid.begin(); xid_iter != highest_xid.end();
+         xid_iter++) {
+        std::string id = xid_iter->first;
+        rep << id;
+        rep << int(xid_iter->second.size());
+        for (auto lx_iter = xid_iter->second.begin();
+             lx_iter != xid_iter->second.end(); lx_iter++) {
+            int lid = lx_iter->first;
+            int xid = lx_iter->second;
+            rep << lid;
+            rep << xid;
+        }
+    }
+
+    rep << int(acquire_cache.size());
+    for (auto iter = acquire_cache.begin(); iter != acquire_cache.end();
+         iter++) {
+        std::string id = iter->first;
+        rep << id;
+        rep << int(iter->second.size());
+        for (auto lx_iter = iter->second.begin(); lx_iter != iter->second.end();
+             lx_iter++) {
+            int lid = lx_iter->first;
+            int xid = lx_iter->second;
+            rep << lid;
+            rep << xid;
+        }
+    }
+
+    rep << int(release_cache.size());
+    for (auto iter = release_cache.begin(); iter != release_cache.end();
+         iter++) {
+        std::string id = iter->first;
+        rep << id;
+        rep << int(iter->second.size());
+        for (auto lx_iter = iter->second.begin(); lx_iter != iter->second.end();
+             lx_iter++) {
+            int lid = lx_iter->first;
+            int xid = lx_iter->second;
+            rep << lid;
+            rep << xid;
+        }
+    }
+    return rep.str();
 }
 
-void lock_server_cache_rsm::unmarshal_state(std::string state) {}
+void lock_server_cache_rsm::unmarshal_state(std::string state) {
+    ScopedLock m(&mtx);
+    unmarshall rep(state);
+    int lock_size;
+    rep >> lock_size;
+    for (int i = 0; i < lock_size; i++) {
+        int lid;
+        std::string client;
+        std::vector<std::string> wait_clients;
+        rep >> lid;
+        rep >> client;
+        rep >> wait_clients;
+
+        std::list<std::string> wc(wait_clients.begin(), wait_clients.end());
+        lock_map[lid] = lock_content(client, wc);
+    }
+
+    int size;
+    rep >> size;
+    for(int i = 0;i < size;i++) {
+        std::string id;
+        int ssize;
+        rep >> id;
+        rep >> ssize;
+        std::map <lock_protocol::lockid_t, lock_protocol::xid_t> m;
+        for(int j = 0; j < ssize;j++) {
+            int lid, xid;
+            rep >> lid;
+            rep >> xid;
+            m[lid] = xid;
+        }
+        highest_xid[id] = m;
+    }
+
+    rep >> size;
+    for(int i = 0;i < size;i++) {
+        std::string id;
+        int ssize;
+        rep >> id;
+        rep >> ssize;
+        std::map <lock_protocol::lockid_t, lock_protocol::xid_t> m;
+        for(int j = 0; j < ssize;j++) {
+            int lid, xid;
+            rep >> lid;
+            rep >> xid;
+            m[lid] = xid;
+        }
+        acquire_cache[id] = m;
+    }
+
+    rep >> size;
+    for(int i = 0;i < size;i++) {
+        std::string id;
+        int ssize;
+        rep >> id;
+        rep >> ssize;
+        std::map <lock_protocol::lockid_t, lock_protocol::xid_t> m;
+        for(int j = 0; j < ssize;j++) {
+            int lid, xid;
+            rep >> lid;
+            rep >> xid;
+            m[lid] = xid;
+        }
+        release_cache[id] = m;
+    }
+}
 
 lock_protocol::status lock_server_cache_rsm::stat(lock_protocol::lockid_t lid,
                                                   int &r) {
