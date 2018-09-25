@@ -244,7 +244,7 @@ bool rsm::sync_with_primary() {
     if(sync_done && vid_insync == vid_commit) {
         inform_done = statetransferdone(m);
     }
-    tprintf("lab7 sync_with_primary done\n");
+    tprintf("lab7 sync_with_primary done, %d\n", int(inform_done));
     return inform_done && sync_done && vid_insync == vid_commit;
 }
 
@@ -257,7 +257,7 @@ bool rsm::statetransfer(std::string m) {
     rsm_protocol::transferres r;
     handle h(m);
     int ret;
-    tprintf("rsm::statetransfer: contact %s w. my last_myvs(%d,%d)\n",
+    tprintf("lab7 rsm::statetransfer: contact %s w. my last_myvs(%d,%d)\n",
             m.c_str(), last_myvs.vid, last_myvs.seqno);
     VERIFY(pthread_mutex_unlock(&rsm_mutex) == 0);
     rpcc *cl = h.safebind();
@@ -267,7 +267,7 @@ bool rsm::statetransfer(std::string m) {
     }
     VERIFY(pthread_mutex_lock(&rsm_mutex) == 0);
     if (cl == 0 || ret != rsm_protocol::OK) {
-        tprintf("rsm::statetransfer: couldn't reach %s %lx %d\n", m.c_str(),
+        tprintf("lab7 rsm::statetransfer: couldn't reach %s %lx %d\n", m.c_str(),
                 (long unsigned)cl, ret);
         return false;
     }
@@ -275,7 +275,7 @@ bool rsm::statetransfer(std::string m) {
         stf->unmarshal_state(r.state);
     }
     last_myvs = r.last;
-    tprintf("rsm::statetransfer transfer from %s success, vs(%d,%d)\n",
+    tprintf("lab7 rsm::statetransfer transfer from %s success, vs(%d,%d)\n",
             m.c_str(), last_myvs.vid, last_myvs.seqno);
     return true;
 }
@@ -285,16 +285,16 @@ bool rsm::statetransferdone(std::string m) {
     // - Inform primary that this slave has synchronized for vid_insync
     tprintf("lab7 statetransferdone: %s start\n", m.c_str());
     pthread_mutex_unlock(&rsm_mutex);
-    bool ret = false;
     int r;
+    int ret;
     handle h(m);
     rpcc *cl = h.safebind();
     if(cl) {
         ret = cl->call(rsm_protocol::transferdonereq, cfg->myaddr(), vid_insync, r);
     } 
     pthread_mutex_lock(&rsm_mutex);
-    tprintf("lab7 statetransferdone: %s finish\n", m.c_str());
-    return ret;
+    tprintf("lab7 statetransferdone: %s finish, %d\n", m.c_str(), int(ret == rsm_protocol::OK));
+    return ret == rsm_protocol::OK ? true:false;
 }
 
 bool rsm::join(std::string m) {
@@ -458,13 +458,14 @@ rsm_protocol::status rsm::transferreq(std::string src, viewstamp last,
     ScopedLock ml(&rsm_mutex);
     int ret = rsm_protocol::OK;
     // Code will be provided in Lab 7
-    tprintf("transferreq from %s (%d,%d) vs (%d,%d)\n", src.c_str(), last.vid,
+    tprintf("lab7 transferreq from %s (%d,%d) vs (%d,%d)\n", src.c_str(), last.vid,
             last.seqno, last_myvs.vid, last_myvs.seqno);
     if (!insync || vid != vid_insync) {
         return rsm_protocol::BUSY;
     }
     if (stf && last != last_myvs) r.state = stf->marshal_state();
     r.last = last_myvs;
+    tprintf("lab7 transferreq: marshal state done, state: %s \n", r.state.c_str());
     return ret;
 }
 
@@ -491,7 +492,7 @@ rsm_protocol::status rsm::transferdonereq(std::string m, unsigned vid, int &) {
     if(backups.size() == 0) {
         pthread_cond_broadcast(&recovery_cond);
     }
-    tprintf("lab7 transferdonereq: %s, vid %d done\n", m.c_str(), int(vid));
+    tprintf("lab7 transferdonereq: %s, vid %d done, %d\n", m.c_str(), int(vid), int(ret));
     return ret;
 }
 

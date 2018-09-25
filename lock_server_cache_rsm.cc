@@ -216,8 +216,10 @@ std::string lock_server_cache_rsm::marshal_state() {
     std::ostringstream ost;
     std::string r;
     ScopedLock m(&mtx);
+    tprintf("lab7: marshal_state start\n")
     marshall rep;
     rep << int(lock_map.size());
+    tprintf("lab7: marshal_state, lock_map size: %d\n", lock_map.size());
     for (auto iter_lock = lock_map.begin(); iter_lock != lock_map.end();
          iter_lock++) {
         int lid = iter_lock->first;
