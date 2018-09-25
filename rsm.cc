@@ -383,6 +383,7 @@ rsm_client_protocol::status rsm::client_invoke(int procno, std::string req,
         myvs.seqno += 1;
         bool failed = false;
 
+        bool first = true;
         auto cur_view = cfg->get_view(myvs.vid);
 
         tprintf("client_invoke: start call slave %s, primary %s\n",
@@ -405,6 +406,12 @@ rsm_client_protocol::status rsm::client_invoke(int procno, std::string req,
                 failed = true;
                 ret = rsm_client_protocol::BUSY;
                 break;
+            }
+            if(first) {
+                first = false;
+                breakpoint1();
+                partition1();
+            
             }
         }
 
@@ -444,6 +451,7 @@ rsm_protocol::status rsm::invoke(int proc, viewstamp vs, std::string req,
     last_myvs = myvs;
     myvs.seqno += 1;
     execute(proc, req, res);
+    breakpoint1();
 
     return ret;
 }
